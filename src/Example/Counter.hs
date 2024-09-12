@@ -2,6 +2,7 @@ module Example.Counter where
 
 import Data.IORef
 
+import Coverage
 import Generate
 import Test
 

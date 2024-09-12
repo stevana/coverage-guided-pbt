@@ -3,11 +3,9 @@
 module Test where
 
 import Control.Monad
-import Data.IORef
-import Data.Set (Set)
-import qualified Data.Set as Set
 import System.Random
 
+import Coverage
 import Generate
 import Generate.Tree
 
@@ -15,27 +13,13 @@ import Generate.Tree
 
 type Seed = Int
 
-newtype Coverage a = Coverage (IORef (Set a))
-
-emptyCoverage :: IO (Coverage a)
-emptyCoverage = Coverage <$> newIORef Set.empty
-
-addCoverage :: Ord a => Coverage a -> a -> IO ()
-addCoverage (Coverage ref) x = modifyIORef' ref (Set.insert x)
-
-readCoverage :: Coverage a -> IO (Set a)
-readCoverage (Coverage ref) = readIORef ref
-
-checkCoverage :: Coverage a -> IO Int
-checkCoverage (Coverage ref) = Set.size <$> readIORef ref
-
 ------------------------------------------------------------------------
 
 checkM :: forall a c. (Show a, Show c)
        => Seed -> Int -> Integrated a -> IO () -> ([a] -> Coverage c -> IO Bool) -> IO ()
 checkM seed numTests gen reset p = do
   coverage <- emptyCoverage
-  mShrinkSteps <- go numTests coverage []
+  mShrinkSteps <- go numTests coverage 0 []
   case mShrinkSteps of
     Nothing -> do
       putStrLn "\nOK"
@@ -50,31 +34,50 @@ checkM seed numTests gen reset p = do
       cov <- readCoverage coverage
       putStrLn $ "Coverage: " ++ show cov
   where
-    go :: Int -> Coverage c -> [a] -> IO (Maybe [[a]])
-    go 0 _cov _cmds = return Nothing
-    go n  cov  cmds = do
+    go :: Int -> Coverage c -> Int -> [a] -> IO (Maybe [[a]])
+    go 0 _cov _before _cmds = return Nothing
+    go n _cov  before  cmds = do
+
       let cmd = root $ runIntegrated (mkStdGen (seed + n)) gen
-      let cmds' = cmds ++ [cmd]
-      before <- checkCoverage cov
-      ok <- p cmds' cov
-      after <- checkCoverage cov
+      cmds' <- randomMutation cmds cmd
+      (ok, after) <- withCoverage (p cmds')
       if ok
       then do
-        let improvedCoverage = before < after
-        if improvedCoverage
-        then do
-          putStr "p"
-          go (n - 1) cov cmds'
-        else do
-          putStr "."
-          go (n - 1) cov cmds
+        let diff = compareCoverage before after
+        case diff of
+          Increased -> do
+            -- putStr "p"
+            go (n - 1) _cov after cmds'
+          Same      -> do
+            -- putStr "p"
+            go (n - 1) _cov after cmds'
+          Decreased -> do
+            -- putStr "."
+            go (n - 1) _cov before cmds
       else do
         putStrLn "\n(Where `p` and `.` indicate picked and dropped values respectively.)"
-        Just <$> minimise (flip p cov) reset (unfoldTree (shrinkList (const [])) cmds')
-
+        Just <$> minimise (flip p _cov) reset (unfoldTree (shrinkList (const [])) cmds')
 minimise :: (a -> IO Bool) -> IO () -> Tree a -> IO [a]
 minimise p reset (Node x xs) = do
-  xs' <- filterM (\x -> reset >> fmap not (p (root x))) xs
+  xs' <- filterM (\x' -> reset >> fmap not (p (root x'))) xs
   case xs' of
     []   -> return [x]
     x':_ -> (:) <$> pure x <*> minimise p reset x'
+
+------------------------------------------------------------------------
+
+randomMutation :: [a] -> a -> IO [a]
+randomMutation [] x = return [x]
+randomMutation xs x = do
+  appendOrUpdate <- randomIO -- XXX: nondet
+  if appendOrUpdate
+  then return (xs ++ [x])
+  else do
+    ix <- randomRIO (0, length xs - 1)
+    return (update ix xs x)
+
+update :: Int -> [a] -> a -> [a]
+update ix xs x' = case splitAt ix xs of
+  (before, _x : after) -> before ++ x' : after
+  (_, []) -> error "update: impossible"
+

@@ -22,7 +22,9 @@ common warnings
 library
   import:           warnings
   exposed-modules:
+    Coverage
     Example.Counter
+    Example.Device
     Example.GuessGame
     Generate
     Generate.Tree

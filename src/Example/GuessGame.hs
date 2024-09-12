@@ -8,6 +8,7 @@ import Data.IORef
 import Data.List
 import System.Random
 
+import Coverage
 import Generate
 import Test
 

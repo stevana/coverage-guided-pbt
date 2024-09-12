@@ -2,6 +2,7 @@ module Generate where
 
 import Control.Monad
 import Data.Containers.ListUtils (nubOrd)
+import Data.Int
 import System.Random
 
 import Generate.Tree
@@ -41,6 +42,12 @@ mBool = Manual
 
 mInt :: Int -> Int -> Manual Int
 mInt lo hi = Manual
+  { _gen    = Gen (fst . randomR (lo, hi))
+  , _shrink = shrinkIntegral
+  }
+
+mInt16 :: Int16 -> Int16 -> Manual Int16
+mInt16 lo hi = Manual
   { _gen    = Gen (fst . randomR (lo, hi))
   , _shrink = shrinkIntegral
   }
@@ -104,6 +111,9 @@ instance Applicative Integrated where
 runIntegrated :: StdGen -> Integrated a -> Tree a
 runIntegrated prng (Integrated f) = f prng
 
+runIntegrated_ :: StdGen -> Integrated a -> a
+runIntegrated_ prng (Integrated f) = root (f prng)
+
 integrated :: Manual a -> Integrated a
 integrated (Manual gen shrink) = Integrated $ \prng ->
   unfoldTree shrink $ runGen prng gen
@@ -113,6 +123,9 @@ iBool = integrated mBool
 
 iInt :: Int -> Int -> Integrated Int
 iInt lo hi = integrated $ mInt lo hi
+
+iInt16 :: Int16 -> Int16 -> Integrated Int16
+iInt16 lo hi = integrated $ mInt16 lo hi
 
 iPair :: Integrated a -> Integrated b -> Integrated (a, b)
 iPair genA genB = (,) <$> genA <*> genB
