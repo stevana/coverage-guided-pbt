@@ -8,5 +8,7 @@ pkgs.mkShell {
     haskell.compiler.ghc9101
     haskellPackages.cabal-fmt
     stylish-haskell
+    proselint
+    pandoc
   ];
 }
