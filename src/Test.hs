@@ -32,8 +32,8 @@ checkCoverage (Coverage ref) = Set.size <$> readIORef ref
 ------------------------------------------------------------------------
 
 checkM :: forall a c. (Show a, Show c)
-       => Seed -> Int -> Integrated a -> ([a] -> Coverage c -> IO Bool) -> IO ()
-checkM seed numTests gen p = do
+       => Seed -> Int -> Integrated a -> IO () -> ([a] -> Coverage c -> IO Bool) -> IO ()
+checkM seed numTests gen reset p = do
   coverage <- emptyCoverage
   mShrinkSteps <- go numTests coverage []
   case mShrinkSteps of
@@ -70,11 +70,11 @@ checkM seed numTests gen p = do
           go (n - 1) cov cmds
       else do
         putStrLn "\n(Where `p` and `.` indicate picked and dropped values respectively.)"
-        Just <$> minimise (flip p cov) (unfoldTree (shrinkList (const [])) cmds')
+        Just <$> minimise (flip p cov) reset (unfoldTree (shrinkList (const [])) cmds')
 
-minimise :: (a -> IO Bool) -> Tree a -> IO [a]
-minimise p (Node x xs) = do
-  xs' <- filterM (fmap not . p . root) xs
+minimise :: (a -> IO Bool) -> IO () -> Tree a -> IO [a]
+minimise p reset (Node x xs) = do
+  xs' <- filterM (\x -> reset >> fmap not (p (root x))) xs
   case xs' of
     []   -> return [x]
-    x':_ -> (:) <$> pure x <*> minimise p x'
+    x':_ -> (:) <$> pure x <*> minimise p reset x'

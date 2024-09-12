@@ -119,10 +119,9 @@ testG seed = do
   game <- newGuessGame seed upperBound attempts
   answers <- correctAnswers game
   putStrLn $ "We are looking for: " ++ show answers
-  checkM seed 500 (genCommand upperBound) $ \cmds coverage -> do
+  checkM seed 500 (genCommand upperBound) (resetGame game) $ \cmds coverage -> do
     resps <- execGuesses game cmds
     zipWithM_ (monitoring coverage) cmds resps
-    resetGame game
     return (safeLast resps /= Just YouHaveWon)
 
 safeLast :: [a] -> Maybe a

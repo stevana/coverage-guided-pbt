@@ -22,6 +22,9 @@ readBrokenCounter (BrokenCounter ref) = readIORef ref
 newBrokenCounter :: IO BrokenCounter
 newBrokenCounter = BrokenCounter <$> newIORef 0
 
+resetCounter :: BrokenCounter -> IO ()
+resetCounter (BrokenCounter ref) = writeIORef ref 0
+
 data Command = Incr
   deriving Show
 
@@ -47,11 +50,12 @@ exec cmds c = do
     exec1 Incr = incrBroken c
 
 testCounter :: Seed -> IO ()
-testCounter seed = checkM seed 500 (integrated mIncr) $ \cmds cov -> do
-  print cmds
+testCounter seed = do
   c <- newBrokenCounter
-  r <- exec cmds c
-  let m = model cmds initModel
-  addCoverage cov (length cmds)
-  return (r == m)
+  checkM seed 500 (integrated mIncr) (resetCounter c) $ \cmds cov -> do
+    resetCounter c
+    r <- exec cmds c
+    let m = model cmds initModel
+    addCoverage cov (length cmds)
+    return (r == m)
 
