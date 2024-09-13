@@ -57,6 +57,7 @@ checkM seed numTests gen reset p = do
       else do
         putStrLn "\n(Where `p` and `.` indicate picked and dropped values respectively.)"
         Just <$> minimise (flip p _cov) reset (unfoldTree (shrinkList (const [])) cmds')
+
 minimise :: (a -> IO Bool) -> IO () -> Tree a -> IO [a]
 minimise p reset (Node x xs) = do
   xs' <- filterM (\x' -> reset >> fmap not (p (root x'))) xs
