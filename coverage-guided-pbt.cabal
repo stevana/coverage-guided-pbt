@@ -1,5 +1,5 @@
 cabal-version:   3.0
-name:            coverage-driven-pbt
+name:            coverage-guided-pbt
 version:         0.0.0
 
 -- synopsis:
@@ -52,4 +52,4 @@ test-suite test
   main-is:          Main.hs
   build-depends:
     , base                 ^>=4.20.0.0
-    , coverage-driven-pbt
+    , coverage-guided-pbt

@@ -1,4 +1,4 @@
-# Revision history for coverage-driven-pbt
+# Revision history for coverage-guided-pbt
 
 ## 0.0.0 -- YYYY-mm-dd
 
