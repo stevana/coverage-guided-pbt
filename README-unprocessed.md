@@ -63,8 +63,9 @@ func sut(input []byte) {
 ```
 
 Even if we generate random inputs of exactly the length 4, it would still take
-$O(2^8 * 2^8 * 2^8 * 2^8) = O((2^8)^4) = O(2^32) = 4294967296$ tries to trigger
-the bug (and obviously even longer if we tried arrays of varying length).
+$O(2^8 \cdot 2^8 \cdot 2^8 \cdot 2^8) = O((2^8)^4) = O(2^32) = 4294967296$
+tries to trigger the bug (and obviously even longer if we tried arrays of
+varying length).
 
 With coverage-guidance we keep track of inputs that resulted in increased
 coverage. So, for example, if we generate the array `[]byte{'A'}` we get
