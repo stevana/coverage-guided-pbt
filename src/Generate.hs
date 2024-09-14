@@ -9,6 +9,7 @@ import Generate.Tree
 
 ------------------------------------------------------------------------
 
+-- start snippet Gen
 newtype Gen a = Gen (StdGen -> a)
 
 instance Functor Gen where
@@ -26,6 +27,7 @@ instance Monad Gen where
   x >>= f = Gen $ \prng ->
     let (prngX, prngF) = split prng
     in runGen prngF (f (runGen prngX x))
+-- end snippet
 
 ------------------------------------------------------------------------
 
@@ -68,7 +70,6 @@ shrinkIntegral x = nubOrd $
              (False, False) -> a > b
              (True,  False) -> a + b < 0
              (False, True)  -> a + b > 0
-
 
 mList :: Int -> Manual a -> Manual [a]
 mList n (Manual gen shrink) = Manual

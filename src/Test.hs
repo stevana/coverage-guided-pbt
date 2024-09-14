@@ -11,9 +11,8 @@ import Generate.Tree
 
 ------------------------------------------------------------------------
 
+-- start snippet check
 type Seed = Int
-
-------------------------------------------------------------------------
 
 checkM :: forall a c. (Show a, Show c)
        => Seed -> Int -> Integrated a -> IO () -> ([a] -> Coverage c -> IO Bool) -> IO ()
@@ -57,16 +56,20 @@ checkM seed numTests gen reset p = do
       else do
         putStrLn "\n(Where `p` and `.` indicate picked and dropped values respectively.)"
         Just <$> minimise (flip p _cov) reset (unfoldTree (shrinkList (const [])) cmds')
+-- end snippet
 
+-- start snippet shrink
 minimise :: (a -> IO Bool) -> IO () -> Tree a -> IO [a]
 minimise p reset (Node x xs) = do
   xs' <- filterM (\x' -> reset >> fmap not (p (root x'))) xs
   case xs' of
     []   -> return [x]
     x':_ -> (:) <$> pure x <*> minimise p reset x'
+-- end snippet
 
 ------------------------------------------------------------------------
 
+-- start snippet mutate
 randomMutation :: [a] -> a -> IO [a]
 randomMutation [] x = return [x]
 randomMutation xs x = do
@@ -76,9 +79,9 @@ randomMutation xs x = do
   else do
     ix <- randomRIO (0, length xs - 1)
     return (update ix xs x)
-
-update :: Int -> [a] -> a -> [a]
-update ix xs x' = case splitAt ix xs of
-  (before, _x : after) -> before ++ x' : after
-  (_, []) -> error "update: impossible"
-
+  where
+    update :: Int -> [a] -> a -> [a]
+    update ix xs0 x' = case splitAt ix xs0 of
+      (before, _x : after) -> before ++ x' : after
+      (_, []) -> error "update: impossible"
+-- end snippet

@@ -1,4 +1,4 @@
-# Why is coverage-guided property-based testing still not a thing?
+# Coverage-guided property-based testing
 
 *Work in progress, please don't share, but do feel free to get
 involved!*
@@ -28,16 +28,16 @@ also arrays of ints, etc.
 
 - Go-fuzz?
 
-- [Crowbar](https://github.com/stedolan/crowbar)
-
-- [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
-
 - Hypothesis
 
   - Has notion of coverage:
     <https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event>)
   - But coverage-guided testing was
     [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3)
+
+- [Crowbar](https://github.com/stedolan/crowbar)
+
+- [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
 
 - Shae "shapr" Erisson's post [*Run property tests until coverage stops
   increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023)
@@ -127,12 +127,137 @@ testing already has?
 
 ## Prototype implementation
 
+- Edsko de Vries'
+  [Mini-QuickCheck](https://www.well-typed.com/blog/2019/05/integrated-shrinking/)
+
+``` haskell
+type Seed = Int
+
+checkM :: forall a c. (Show a, Show c)
+       => Seed -> Int -> Integrated a -> IO () -> ([a] -> Coverage c -> IO Bool) -> IO ()
+checkM seed numTests gen reset p = do
+  coverage <- emptyCoverage
+  mShrinkSteps <- go numTests coverage 0 []
+  case mShrinkSteps of
+    Nothing -> do
+      putStrLn "\nOK"
+      cov <- readCoverage coverage
+      putStrLn $ "Coverage: " ++ show cov
+    Just shrinkSteps -> do
+      putStrLn $ "Failed: " ++ case shrinkSteps of
+                                 [] -> error "impossible: shrinkSteps empty"
+                                 (s : _ss) -> show s
+      putStrLn $ "Shrinking: " ++ show shrinkSteps
+      putStrLn $ "Shrunk: " ++ show (last shrinkSteps)
+      cov <- readCoverage coverage
+      putStrLn $ "Coverage: " ++ show cov
+  where
+    go :: Int -> Coverage c -> Int -> [a] -> IO (Maybe [[a]])
+    go 0 _cov _before _cmds = return Nothing
+    go n _cov  before  cmds = do
+
+      let cmd = root $ runIntegrated (mkStdGen (seed + n)) gen
+      cmds' <- randomMutation cmds cmd
+      (ok, after) <- withCoverage (p cmds')
+      if ok
+      then do
+        let diff = compareCoverage before after
+        case diff of
+          Increased -> do
+            -- putStr "p"
+            go (n - 1) _cov after cmds'
+          Same      -> do
+            -- putStr "p"
+            go (n - 1) _cov after cmds'
+          Decreased -> do
+            -- putStr "."
+            go (n - 1) _cov before cmds
+      else do
+        putStrLn "\n(Where `p` and `.` indicate picked and dropped values respectively.)"
+        Just <$> minimise (flip p _cov) reset (unfoldTree (shrinkList (const [])) cmds')
+```
+
+``` haskell
+minimise :: (a -> IO Bool) -> IO () -> Tree a -> IO [a]
+minimise p reset (Node x xs) = do
+  xs' <- filterM (\x' -> reset >> fmap not (p (root x'))) xs
+  case xs' of
+    []   -> return [x]
+    x':_ -> (:) <$> pure x <*> minimise p reset x'
+```
+
+``` haskell
+randomMutation :: [a] -> a -> IO [a]
+randomMutation [] x = return [x]
+randomMutation xs x = do
+  appendOrUpdate <- randomIO -- XXX: nondet
+  if appendOrUpdate
+  then return (xs ++ [x])
+  else do
+    ix <- randomRIO (0, length xs - 1)
+    return (update ix xs x)
+  where
+    update :: Int -> [a] -> a -> [a]
+    update ix xs0 x' = case splitAt ix xs0 of
+      (before, _x : after) -> before ++ x' : after
+      (_, []) -> error "update: impossible"
+```
+
+``` haskell
+newtype Coverage a = Coverage (IORef (Set a))
+
+emptyCoverage :: IO (Coverage a)
+emptyCoverage = Coverage <$> newIORef Set.empty
+
+addCoverage :: Ord a => Coverage a -> a -> IO ()
+addCoverage (Coverage ref) x = modifyIORef' ref (Set.insert x)
+
+readCoverage :: Coverage a -> IO (Set a)
+readCoverage (Coverage ref) = readIORef ref
+
+checkCoverage :: Coverage a -> IO Int
+checkCoverage (Coverage ref) = Set.size <$> readIORef ref
+
+data CoverageDiff = Decreased | Same | Increased
+
+compareCoverage :: Int -> Int -> CoverageDiff
+compareCoverage before after = case compare after before of
+  LT -> Decreased
+  EQ -> Same
+  GT -> Increased
+
+withCoverage :: (Coverage c -> IO a) -> IO (a, Int)
+withCoverage k = do
+  c <- emptyCoverage
+  x <- k c
+  after <- checkCoverage c
+  return (x, after)
+```
+
+``` haskell
+newtype Gen a = Gen (StdGen -> a)
+
+instance Functor Gen where
+  fmap f (Gen k) = Gen (f . k)
+
+runGen :: StdGen -> Gen a -> a
+runGen prng (Gen g) = g prng
+
+instance Applicative Gen where
+  pure x = Gen $ \_prng -> x
+  (<*>)  = ap
+
+instance Monad Gen where
+  return  = pure
+  x >>= f = Gen $ \prng ->
+    let (prngX, prngF) = split prng
+    in runGen prngF (f (runGen prngX x))
+```
+
+The full source code is available
+[here](https://github.com/stevana/coverage-guided-pbt).
+
 ## Testing some examples with the prototype
-
-## Compare with other libraries
-
-- Go-fuzz
-- Hypothesis
 
 ## Conclusion and further work
 
@@ -145,16 +270,6 @@ testing already has?
 
 - Use size parameter to implement AFL heuristic for choosing integers?
   Or just use `frequency`?
-
-## See also
-
-- [Coverage guided, property based
-  testing](https://dl.acm.org/doi/10.1145/3360607) by Pierce et al
-  (2019)
-
-- [Building on developers' intuitions to create effective property-based
-  tests](https://www.youtube.com/watch?v=NcJOiQlzlXQ) by John Hughes
-  (Lambda Days, 2019)
 
 [^1]: Here's Dan's example in full:
 

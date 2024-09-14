@@ -1,4 +1,4 @@
-# Why is coverage-guided property-based testing still not a thing?
+# Coverage-guided property-based testing
 
 *Work in progress, please don't share, but do feel free to get involved!*
 
@@ -27,12 +27,12 @@ etc.
 
 * Go-fuzz?
 
-* [Crowbar](https://github.com/stedolan/crowbar)
-* [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
-
 * Hypothesis 
   - Has notion of coverage: https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event) 
   - But coverage-guided testing was [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3) 
+
+* [Crowbar](https://github.com/stedolan/crowbar)
+* [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
 
 * Shae "shapr" Erisson's post [*Run property tests until coverage stops
   increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html)
@@ -117,12 +117,28 @@ using the internal notion of coverage that property-based testing already has?
 
 ## Prototype implementation
 
+* Edsko de Vries'
+  [Mini-QuickCheck](https://www.well-typed.com/blog/2019/05/integrated-shrinking/)
+
+``` {.haskell include=src/Test.hs snippet=check}
+```
+
+``` {.haskell include=src/Test.hs snippet=shrink}
+```
+
+``` {.haskell include=src/Test.hs snippet=mutate}
+```
+
+``` {.haskell include=src/Coverage.hs snippet=Coverage}
+```
+
+``` {.haskell include=src/Generate.hs snippet=Gen}
+```
+
+The full source code is available
+[here](https://github.com/stevana/coverage-guided-pbt).
+
 ## Testing some examples with the prototype
-
-## Compare with other libraries
-
-* Go-fuzz
-* Hypothesis
 
 ## Conclusion and further work
 
@@ -133,15 +149,6 @@ using the internal notion of coverage that property-based testing already has?
 
 * Use size parameter to implement AFL heuristic for choosing integers? Or just
   use `frequency`?
-
-## See also
-
-* [Coverage guided, property based
-  testing](https://dl.acm.org/doi/10.1145/3360607) by Pierce et al (2019)
-
-* [Building on developers' intuitions to create effective property-based
-  tests](https://www.youtube.com/watch?v=NcJOiQlzlXQ) by John Hughes (Lambda
-  Days, 2019)
 
 
 [^1]: Here's Dan's example in full:
