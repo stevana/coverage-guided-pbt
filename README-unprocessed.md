@@ -30,9 +30,9 @@ etc.
 * [Crowbar](https://github.com/stedolan/crowbar)
 * [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
 
-| Library | Language | Coverage collection | Coverage-guided | Notes |
-│ | :---    | :---     | :---:    | :---:    | :---  |
-| Hypothesis | Python | [☒](https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event) | ☐ | Coverage-guided testing was [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3) |
+* Hypothesis 
+  - Has notion of coverage: https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event) 
+  - But coverage-guided testing was [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3) 
 
 ## Examples and the main idea of coverage-guidance
 
