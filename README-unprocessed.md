@@ -77,19 +77,43 @@ reduce the problem to only need $O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8 \cdot 4) =
 O(2^{10}) = 1024$ tries. With other words coverage-guidence turns an
 exponential problem into a polynomial problem!
 
+Great, but where do we get this coverage information from? 
 
-* Where do we get the covergage information from?
-  - compiler?
-  - line/branch?
-  - slow, requires compiler with special falgs (in Haskell), different setup in different languages
-* Antithesis' ["sometime
-  assertions"](https://antithesis.com/docs/best_practices/sometimes_assertions.html)
-  - generalised coverage
-  - not all coverage is the same
-* PBT already has notion of coverage built-in ("labels"), which is
-  [crucial](https://www.youtube.com/watch?v=NcJOiQlzlXQ) for writing good PBTs,
-  can we not just reuse that?
+AFL and `go-fuzz` both get it from the compiler.
 
+When I've been thinking about how to implement coverage-guided property-based
+testing in the past, I always got stuck thinking that parsing the coverage
+output from the compiler in between test case generation rounds would be
+annoying and slow.
+
+I didn't know that you could get this information from a library provided by
+the GHC compiler in Haskell, until I read Shae "shapr" Erisson does in his
+[post](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html).
+
+While this certainly makes things easier, it wasn't until I read about
+Antithesis' ["sometime
+assertions"](https://antithesis.com/docs/best_practices/sometimes_assertions.html)
+that I started seeing a really simple solution to the problem.
+
+These "sometimes assertions" can be thought of as generalised coverage, in that
+if we would annotate every single line, expression or branch with a sometime
+assertion we'd get back line-, expression-, or branch-based coverage. 
+
+But the cool thing about "sometimes assertions" is that we don't need to
+annotate every single line, expression or branch, we can annotate *interesting*
+points in our program.
+
+The final piece of the puzzle, and I think this is the only original idea that
+this post adds, is that property-based testing already has functionality for
+implementing "sometimes assertions": the `label`, `classify` and `collect`
+machinary for gathering run-time statistics of the generated data!
+
+This machinary is [crucial](https://www.youtube.com/watch?v=NcJOiQlzlXQ) for
+writing good tests and has been part of the QuickCheck implementation since the
+very first version[^2]!
+
+So the question is: can we implement coverage-guided property-based testing
+using the internal notion of coverage that property-based testing already has?
 
 ## Prototype implementation
 
@@ -157,4 +181,7 @@ exponential problem into a polynomial problem!
     As I hope we can agree, it's very similar to Dmitry's example, except it's a
     bit less clear what exactly happens in the if statement.
 
-
+[^2]: See the appendix of the original
+    [paper](https://dl.acm.org/doi/10.1145/351240.351266) that first introduced
+    property-based testing. It's interesting to note that this functionality is
+    older than shrinking.
