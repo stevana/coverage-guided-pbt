@@ -121,40 +121,40 @@ exponential problem into a polynomial problem!
 
 
 [^1]: Here's Dan's example in full:
-  ```
-  // Checks that a number has its bottom bits set
-  func some_filter(x int) bool {
-  	for i := 0; i < 16; i = i + 1 {
-  		if !(x&1 == 1) {
-  			return false
-  		}
-  		x >>= 1
-  	}
-  	return true
-  }
-  
-  // Takes an array and returns a non-zero int
-  func dut(a []int) int {
-  	if len(a) != 4 {
-  		return 1
-  	}
-  
-  	if some_filter(a[0]) {
-  		if some_filter(a[1]) {
-  			if some_filter(a[2]) {
-  				if some_filter(a[3]) {
-  					return 0 // A bug! We failed to return non-zero!
-  				}
-  				return 2
-  			}
-  			return 3
-  		}
-  		return 4
-  	}
-  	return 5
-  }
-  ```
-  As I hope we can agree, it's very similar to Dmitry's example, except it's a
-  bit less clear what exactly happens in the if statement.
+    ```
+    // Checks that a number has its bottom bits set
+    func some_filter(x int) bool {
+    	for i := 0; i < 16; i = i + 1 {
+    		if !(x&1 == 1) {
+    			return false
+    		}
+    		x >>= 1
+    	}
+    	return true
+    }
+    
+    // Takes an array and returns a non-zero int
+    func dut(a []int) int {
+    	if len(a) != 4 {
+    		return 1
+    	}
+    
+    	if some_filter(a[0]) {
+    		if some_filter(a[1]) {
+    			if some_filter(a[2]) {
+    				if some_filter(a[3]) {
+    					return 0 // A bug! We failed to return non-zero!
+    				}
+    				return 2
+    			}
+    			return 3
+    		}
+    		return 4
+    	}
+    	return 5
+    }
+    ```
+    As I hope we can agree, it's very similar to Dmitry's example, except it's a
+    bit less clear what exactly happens in the if statement.
 
 
