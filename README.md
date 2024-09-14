@@ -66,9 +66,10 @@ easier to understand version of the example from Dan's post[^1].
     }
 
 Even if we generate random inputs of exactly the length 4, it would
-still take $O(2^8 * 2^8 * 2^8 * 2^8) = O(2^8^4) = O(2^32) = 4294967296$
-tries to trigger the bug (and obviously even longer if we tried arrays
-of varying length).
+still take
+$O(2^8 * 2^8 * 2^8 * 2^8) = O((2^8)^4) = O(2^32) = 4294967296$ tries to
+trigger the bug (and obviously even longer if we tried arrays of varying
+length).
 
 With coverage-guidance we keep track of inputs that resulted in
 increased coverage. So, for example, if we generate the array
@@ -78,9 +79,9 @@ we get even further, etc.
 
 By building on previous succeses in getting more coverage, we can
 effectively reduce the problem to only need
-$O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8*4) = O(2^10)
-= 1024$ tries. With other words coverage-guidence turns an exponential
-problem into a polynomial problem!
+$O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8 \cdot 4) =
+O(2^{10}) = 1024$ tries. With other words coverage-guidence turns an
+exponential problem into a polynomial problem!
 
 - Where do we get the covergage information from?
   - compiler?

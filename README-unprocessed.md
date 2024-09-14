@@ -63,7 +63,7 @@ func sut(input []byte) {
 ```
 
 Even if we generate random inputs of exactly the length 4, it would still take
-$O(2^8 * 2^8 * 2^8 * 2^8) = O(2^8^4) = O(2^32) = 4294967296$ tries to trigger
+$O(2^8 * 2^8 * 2^8 * 2^8) = O((2^8)^4) = O(2^32) = 4294967296$ tries to trigger
 the bug (and obviously even longer if we tried arrays of varying length).
 
 With coverage-guidance we keep track of inputs that resulted in increased
@@ -72,9 +72,9 @@ further into the nested ifs, and so we take note of that and start generating
 longer arrays that start with 'A' and see if we get even further, etc.
 
 By building on previous succeses in getting more coverage, we can effectively
-reduce the problem to only need $O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8*4) = O(2^10)
-= 1024$ tries. With other words coverage-guidence turns an exponential problem
-into a polynomial problem!
+reduce the problem to only need $O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8 \cdot 4) =
+O(2^{10}) = 1024$ tries. With other words coverage-guidence turns an
+exponential problem into a polynomial problem!
 
 
 * Where do we get the covergage information from?
