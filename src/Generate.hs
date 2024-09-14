@@ -23,7 +23,7 @@ instance Applicative Gen where
 
 instance Monad Gen where
   return  = pure
-  x >>= f = Gen $ \ prng ->
+  x >>= f = Gen $ \prng ->
     let (prngX, prngF) = split prng
     in runGen prngF (f (runGen prngX x))
 

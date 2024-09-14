@@ -1,13 +1,17 @@
-# Coverage-guided property-based testing
+# Why is coverage-guided property-based testing still not a thing?
 
 *Work in progress, please don't share, but do feel free to get
 involved!*
 
 Almost ten years ago, back in 2015, Dan Luu wrote a
 [post](https://danluu.com/testing/) asking why coverage-guided
-property-based testing wasn't a thing. In this post I'll show how one
-can implement such a thing starting from scratch. I'll be using Haskell,
-but the technique is programming language agnostic.
+property-based testing wasn't a thing.
+
+In this post I'll show how one can implement such a thing starting from
+scratch.
+
+The technique is programming language agnostic and doesn't rely on any
+language-specific instrumentation of the software under test.
 
 ## Background and prior work
 
@@ -24,18 +28,87 @@ also arrays of ints, etc.
 
 - Go-fuzz?
 
-- Hypothesis?
+- [Crowbar](https://github.com/stedolan/crowbar)
 
-- [fuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
+- [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
+
+\| Library \| Language \| Coverage collection \| Coverage-guided \|
+Notes \| │ \| :--- \| :--- \| :---: \| :---: \| :--- \| \| Hypothesis \|
+Python \|
+[☒](https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event)
+\| ☐ \| Coverage-guided testing was
+[removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3)
+\|
 
 ## Examples and the main idea of coverage-guidance
 
-- Where do we get th ecovergage information from?
+Dan Luu's example:
+
+    // Checks that a number has its bottom bits set
+    func some_filter(x int) bool {
+        for i := 0; i < 16; i = i + 1 {
+            if !(x&1 == 1) {
+                return false
+            }
+            x >>= 1
+        }
+        return true
+    }
+
+    // Takes an array and returns a non-zero int
+    func dut(a []int) int {
+        if len(a) != 4 {
+            return 1
+        }
+
+        if some_filter(a[0]) {
+            if some_filter(a[1]) {
+                if some_filter(a[2]) {
+                    if some_filter(a[3]) {
+                        return 0 // A bug! We failed to return non-zero!
+                    }
+                    return 2
+                }
+                return 3
+            }
+            return 4
+        }
+        return 5
+    }
+
+Dmitry Vyukov, the main author of
+[go-fuzz](https://github.com/dvyukov/go-fuzz), gives the follow similar
+in spirit but easier to understand example:
+
+
+    The following code wants "ABCD" input:
+
+        if input[0] == 'A' {
+            if input[1] == 'B' {
+                if input[2] == 'C' {
+                    if input[3] == 'D' {
+                        slice[input[4]] = 1  // out-of-bounds here
+        }}}}
+
+    Blind generation needs O(2^8^4) = O(2^32) tries.
+
+    Corpus progression:
+
+        0. {}
+        1. {"A"}
+        2. {"A", "AB"}
+        3. {"A", "AB", "ABC"}
+        4. {"A", "AB", "ABC", "ABCD"}
+
+    Coverage-guided fuzzer needs O(4 * 2^8) = O(2^10) tries.
+
+- Where do we get the covergage information from?
   - compiler?
   - line/branch?
   - slow, requires compiler with special falgs (in Haskell), different
     setup in different languages
-- Antithesis' "sometime assertions"
+- Antithesis' ["sometime
+  assertions"](https://antithesis.com/docs/best_practices/sometimes_assertions.html)
   - generalised coverage
   - not all coverage is the same
 - PBT already has notion of coverage built-in ("labels"), which is
