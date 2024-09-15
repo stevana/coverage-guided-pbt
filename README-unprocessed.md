@@ -15,6 +15,10 @@ language-specific instrumentation of the software under test.
 ## Background and prior work
 
 * AFL
+ 
+* [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
+  [FuzzTest](https://github.com/google/fuzztest)
+* [honggfuzz](https://github.com/google/honggfuzz)
 
 Coverage-guided fuzzers, such as [American Fuzzy
 Lop](https://lcamtuf.coredump.cx/afl/) (AFL), have been very successful in
@@ -37,6 +41,12 @@ etc.
 * Shae "shapr" Erisson's post [*Run property tests until coverage stops
   increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html)
   (2023) and [trynocular](https://github.com/shapr/trynocular) library.
+
+* [JQF + Zest: Coverage-guided semantic fuzzing for
+  Java](https://github.com/rohanpadhye/jqf)?
+
+* [Structure-aware fuzzing using libfuzzer-sys in
+  Rust](https://rust-fuzz.github.io/book/cargo-fuzz/structure-aware-fuzzing.html)
 
 ## Examples and the main idea of coverage-guidance
 
