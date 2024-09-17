@@ -3,7 +3,7 @@ module Example.Counter where
 import Data.IORef
 
 import Coverage
-import Generate
+import Generator
 import Test
 
 ------------------------------------------------------------------------
@@ -29,11 +29,8 @@ resetCounter (BrokenCounter ref) = writeIORef ref 0
 data Command = Incr
   deriving Show
 
-mIncr :: Manual Command
-mIncr = Manual
-  { _gen    = return Incr
-  , _shrink = const []
-  }
+genIncr :: Gen Command
+genIncr = return Incr
 
 newtype Model = Model Int
 
@@ -53,7 +50,7 @@ exec cmds c = do
 testCounter :: Seed -> IO ()
 testCounter seed = do
   c <- newBrokenCounter
-  checkM seed 500 (integrated mIncr) (resetCounter c) $ \cmds cov -> do
+  checkM seed 500 genIncr $ \_shrinking cov cmds -> do
     resetCounter c
     r <- exec cmds c
     let m = model cmds initModel

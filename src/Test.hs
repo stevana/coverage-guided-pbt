@@ -3,20 +3,24 @@
 module Test where
 
 import Control.Monad
+import Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
 import System.Random
 
 import Coverage
-import Generate
-import Generate.Tree
+import Generator
+import Shrinker
 
 ------------------------------------------------------------------------
 
 -- start snippet check
 type Seed = Int
 
+type Shrinking = Bool
+
 checkM :: forall a c. (Show a, Show c)
-       => Seed -> Int -> Integrated a -> IO () -> ([a] -> Coverage c -> IO Bool) -> IO ()
-checkM seed numTests gen reset p = do
+       => Seed -> Int -> Gen a -> (Shrinking -> Coverage c -> [a] -> IO Bool) -> IO ()
+checkM seed numTests gen p = do
   coverage <- emptyCoverage
   mShrinkSteps <- go numTests coverage 0 []
   case mShrinkSteps of
@@ -25,21 +29,20 @@ checkM seed numTests gen reset p = do
       cov <- readCoverage coverage
       putStrLn $ "Coverage: " ++ show cov
     Just shrinkSteps -> do
-      putStrLn $ "Failed: " ++ case shrinkSteps of
-                                 [] -> error "impossible: shrinkSteps empty"
-                                 (s : _ss) -> show s
+      putStrLn $ "Failed: " ++ show (NonEmpty.head shrinkSteps)
       putStrLn $ "Shrinking: " ++ show shrinkSteps
-      putStrLn $ "Shrunk: " ++ show (last shrinkSteps)
+      putStrLn $ "#Shrinks: " ++ show (NonEmpty.length shrinkSteps - 1)
+      putStrLn $ "Shrunk: " ++ show (NonEmpty.last shrinkSteps)
       cov <- readCoverage coverage
       putStrLn $ "Coverage: " ++ show cov
   where
-    go :: Int -> Coverage c -> Int -> [a] -> IO (Maybe [[a]])
+    go :: Int -> Coverage c -> Int -> [a] -> IO (Maybe (NonEmpty [a]))
     go 0 _cov _before _cmds = return Nothing
     go n _cov  before  cmds = do
-
-      let cmd = root $ runIntegrated (mkStdGen (seed + n)) gen
+      let sz = n * 3 `div` 2
+      let cmd = runGen sz (mkStdGen (seed + n)) gen
       cmds' <- randomMutation cmds cmd
-      (ok, after) <- withCoverage (p cmds')
+      (ok, after) <- withCoverage (\cov -> p False cov cmds')
       if ok
       then do
         let diff = compareCoverage before after
@@ -55,16 +58,7 @@ checkM seed numTests gen reset p = do
             go (n - 1) _cov before cmds
       else do
         putStrLn "\n(Where `p` and `.` indicate picked and dropped values respectively.)"
-        Just <$> minimise (flip p _cov) reset (unfoldTree (shrinkList (const [])) cmds')
--- end snippet
-
--- start snippet shrink
-minimise :: (a -> IO Bool) -> IO () -> Tree a -> IO [a]
-minimise p reset (Node x xs) = do
-  xs' <- filterM (\x' -> reset >> fmap not (p (root x'))) xs
-  case xs' of
-    []   -> return [x]
-    x':_ -> (:) <$> pure x <*> minimise p reset x'
+        Just <$> shrinker (p True _cov) (shrinkList (const [])) cmds'
 -- end snippet
 
 ------------------------------------------------------------------------

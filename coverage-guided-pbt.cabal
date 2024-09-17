@@ -26,8 +26,8 @@ library
     Example.Counter
     Example.Device
     Example.GuessGame
-    Generate
-    Generate.Tree
+    Generator
+    Shrinker
     Statistics
     Test
 
@@ -36,8 +36,8 @@ library
   build-depends:
     , base        ^>=4.20.0.0
     , containers
-    , random
     , QuickCheck
+    , random
 
   hs-source-dirs:   src
   default-language: Haskell2010

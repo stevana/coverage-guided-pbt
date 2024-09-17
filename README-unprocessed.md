@@ -152,6 +152,10 @@ The full source code is available
 
 ## Conclusion and further work
 
+* Local maxima?
+
+* Save `(Coverage, Mutation, Frequency, Coverage)` stats?
+
 * More realistic example, e.g.: leader election, transaction rollback,
   failover?
 * Annoying to sprinkle sometimes assertions everywhere?
@@ -159,6 +163,12 @@ The full source code is available
 
 * Use size parameter to implement AFL heuristic for choosing integers? Or just
   use `frequency`?
+
+## See also
+
+* https://aflplus.plus/docs/power_schedules/
+* https://github.com/mboehme/aflfast
+* https://mboehme.github.io/paper/CCS16.pdf
 
 
 [^1]: Here's Dan's example in full:

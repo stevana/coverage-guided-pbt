@@ -22,6 +22,7 @@ checkCoverage :: Coverage a -> IO Int
 checkCoverage (Coverage ref) = Set.size <$> readIORef ref
 
 data CoverageDiff = Decreased | Same | Increased
+  deriving Eq
 
 compareCoverage :: Int -> Int -> CoverageDiff
 compareCoverage before after = case compare after before of

@@ -5,7 +5,7 @@ import Data.Int
 import System.Random
 
 import Coverage
-import Generate
+import Generator
 import Test
 
 ------------------------------------------------------------------------
@@ -77,7 +77,7 @@ testD seed = do
   let lowerBound = minBound
       upperBound = maxBound
   -- qnbinom(0.99, 1, (1/2^16)*4) = 75448
-  checkM seed 500000 (iInt16 lowerBound upperBound) (return ()) $ \a coverage -> do
+  checkM seed 5000000 (genIntegral lowerBound upperBound) $ \_shrinking coverage a -> do
     result <- dut coverage a
     return (result /= 0)
 

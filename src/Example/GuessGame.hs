@@ -9,7 +9,7 @@ import Data.List
 import System.Random
 
 import Coverage
-import Generate
+import Generator
 import Test
 
 ------------------------------------------------------------------------
@@ -97,8 +97,8 @@ play = do
 data GuessCommand = Guess Int
   deriving (Eq, Ord, Show)
 
-genCommand :: Int -> Integrated GuessCommand
-genCommand hi = Guess <$> iInt 0 hi
+genCommand :: Int -> Gen GuessCommand
+genCommand hi = Guess <$> genIntegral 0 hi
 
 execGuesses :: GuessGame -> [GuessCommand] -> IO [GuessResponse]
 execGuesses game = go []
@@ -120,7 +120,8 @@ testG seed = do
   game <- newGuessGame seed upperBound attempts
   answers <- correctAnswers game
   putStrLn $ "We are looking for: " ++ show answers
-  checkM seed 500 (genCommand upperBound) (resetGame game) $ \cmds coverage -> do
+  checkM seed 500 (genCommand upperBound) $ \_shrinking coverage cmds -> do
+    resetGame game
     resps <- execGuesses game cmds
     zipWithM_ (monitoring coverage) cmds resps
     return (safeLast resps /= Just YouHaveWon)
@@ -132,3 +133,5 @@ safeLast xs = Just (last xs)
 monitoring :: Coverage GuessResponse -> GuessCommand -> GuessResponse -> IO ()
 monitoring cov _cmd (WrongGuess _) = addCoverage cov (WrongGuess (-1))
 monitoring cov _cmd resp           = addCoverage cov resp
+
+------------------------------------------------------------------------
