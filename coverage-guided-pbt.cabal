@@ -22,11 +22,17 @@ common warnings
 library
   import:           warnings
   exposed-modules:
+    Checker
     Coverage
+    Example.Abcd
+    Example.Bad
     Example.Counter
     Example.Device
     Example.GuessGame
     Generator
+    Mutator
+    Queue
+    Runner
     Shrinker
     Statistics
     Test
@@ -36,8 +42,8 @@ library
   build-depends:
     , base        ^>=4.20.0.0
     , containers
-    , QuickCheck
     , random
+    , time
 
   hs-source-dirs:   src
   default-language: Haskell2010

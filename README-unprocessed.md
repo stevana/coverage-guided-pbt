@@ -14,6 +14,9 @@ language-specific instrumentation of the software under test.
 
 ## Background and prior work
 
+* [An empirical study of the reliability of UNIX
+  utilities](https://dl.acm.org/doi/10.1145/96267.96279) (1990)
+
 * AFL
  
 * [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
@@ -89,7 +92,9 @@ exponential problem into a polynomial problem!
 
 Great, but where do we get this coverage information from? 
 
-AFL and `go-fuzz` both get it from the compiler.
+AFL and `go-fuzz` both get it from the compiler. 
+
+AFL injects code into every [basic block](https://en.wikipedia.org/wiki/Basic_block).
 
 When I've been thinking about how to implement coverage-guided property-based
 testing in the past, I always got stuck thinking that parsing the coverage
@@ -127,6 +132,11 @@ using the internal notion of coverage that property-based testing already has?
 
 ## Prototype implementation
 
+* QuickCheck as defined in the appendix of the original
+  [paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000)
+  - Extended with shrinking
+  - Extended monadic properties
+
 * Edsko de Vries'
   [Mini-QuickCheck](https://www.well-typed.com/blog/2019/05/integrated-shrinking/)
 
@@ -142,7 +152,7 @@ using the internal notion of coverage that property-based testing already has?
 ``` {.haskell include=src/Coverage.hs snippet=Coverage}
 ```
 
-``` {.haskell include=src/Generate.hs snippet=Gen}
+``` {.haskell include=src/Generator.hs snippet=Gen}
 ```
 
 The full source code is available
@@ -152,7 +162,15 @@ The full source code is available
 
 ## Conclusion and further work
 
+* Problem of strategy (pick something as basis for progress): coverage, logs,
+  value of memory, helps bootstap the process. Generalise to support more?
+
 * Local maxima?
+
+* Problem of tactics: picking a good input distributed for the testing problem
+  at hand. Make previous input influence the next input? Dependent events, e.g.
+  if one packet gets lost, there's a higher chance that the next packet will be
+  lost as well.
 
 * Save `(Coverage, Mutation, Frequency, Coverage)` stats?
 
@@ -164,11 +182,25 @@ The full source code is available
 * Use size parameter to implement AFL heuristic for choosing integers? Or just
   use `frequency`?
 
+* Type-generic mutation?
+
 ## See also
 
 * https://aflplus.plus/docs/power_schedules/
 * https://github.com/mboehme/aflfast
 * https://mboehme.github.io/paper/CCS16.pdf
+* https://carstein.github.io/fuzzing/2020/04/18/writing-simple-fuzzer-1.html
+* https://carstein.github.io/fuzzing/2020/04/25/writing-simple-fuzzer-2.html
+* https://carstein.github.io/fuzzing/2020/05/02/writing-simple-fuzzer-3.html
+* https://carstein.github.io/fuzzing/2020/05/21/writing-simple-fuzzer-4.html
+* [How Antithesis finds bugs (with help from the Super Mario
+  Bros)](https://antithesis.com/blog/sdtalk/)
+* Swarm testing
+* [AFL "whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt)
+* [AFL mutation
+  heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html)
+* https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html
+
 
 
 [^1]: Here's Dan's example in full:

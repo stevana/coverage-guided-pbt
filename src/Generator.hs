@@ -6,9 +6,11 @@ import System.Random
 
 --------------------------------------------------------------------
 
+-- start snippet Gen
 newtype Gen a = Gen (Size -> StdGen -> a)
 
 type Size = Int
+-- end snippet
 
 sized :: (Int -> Gen a) -> Gen a
 sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
@@ -16,8 +18,8 @@ sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
 rand :: Gen StdGen
 rand = Gen (\_sz prng -> prng)
 
-runGen :: Int -> StdGen -> Gen a -> a
-runGen n prng (Gen m) = m sz prng'
+generate :: Int -> StdGen -> Gen a -> a
+generate n prng (Gen m) = m sz prng'
   where
     (sz, prng') = randomR (0, n) prng
 
@@ -76,7 +78,10 @@ four m = liftM4 (,,,) m m m m
 ------------------------------------------------------------------------
 
 genChar :: Gen Char
-genChar = fmap chr $ (fst . randomR (65, 90)) <$> rand
+genChar = fmap chr $ (fst . randomR (0, 128)) <$> rand
+
+genSmallLetter :: Gen Char
+genSmallLetter = fmap chr $ (fst . randomR (97, 122)) <$> rand
 
 genList :: Gen a -> Gen [a]
 genList g = sized $ \sz -> vector sz g

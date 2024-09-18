@@ -74,3 +74,13 @@ shrinker p shr x0 = go (unfoldTree shr x0)
         []   -> return (NonEmpty.singleton x)
         x':_ -> NonEmpty.cons <$> pure x <*> go x'
 -- end snippet
+--
+shrinker' :: forall a. ([a] -> IO Bool) -> (a -> [a]) -> [a] -> IO (NonEmpty [a])
+shrinker' p shr x0 = go (unfoldTree (shrinkList shr) x0)
+  where
+    go :: Tree [a] -> IO (NonEmpty [a])
+    go (Node x xs) = do
+      xs' <- filterM (fmap not . p . root) xs
+      case xs' of
+        []   -> return (NonEmpty.singleton x)
+        x':_ -> NonEmpty.cons <$> pure x <*> go x'

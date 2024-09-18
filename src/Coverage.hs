@@ -37,3 +37,10 @@ withCoverage k = do
   after <- checkCoverage c
   return (x, after)
 -- end snippet
+--
+withCoverage' :: (Coverage c -> IO a) -> IO (a, Coverage c, Int)
+withCoverage' k = do
+  c <- emptyCoverage
+  x <- k c
+  after <- checkCoverage c
+  return (x, c, after)

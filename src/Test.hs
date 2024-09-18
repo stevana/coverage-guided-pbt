@@ -2,7 +2,6 @@
 
 module Test where
 
-import Control.Monad
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import System.Random
@@ -39,8 +38,8 @@ checkM seed numTests gen p = do
     go :: Int -> Coverage c -> Int -> [a] -> IO (Maybe (NonEmpty [a]))
     go 0 _cov _before _cmds = return Nothing
     go n _cov  before  cmds = do
-      let sz = n * 3 `div` 2
-      let cmd = runGen sz (mkStdGen (seed + n)) gen
+      let sz  = n * 3 `div` 2
+      let cmd = generate sz (mkStdGen (seed + n)) gen
       cmds' <- randomMutation cmds cmd
       (ok, after) <- withCoverage (\cov -> p False cov cmds')
       if ok
