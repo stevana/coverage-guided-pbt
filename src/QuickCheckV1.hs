@@ -388,6 +388,8 @@ testsC config gen prop xs cov rnd0 ntest nfail stamps
        (rnd1,rnd2)    = split rnd0
        (rnd3,rnd4)    = split rnd2
 
+------------------------------------------------------------------------
+
 bad :: String -> Property
 bad s = coverage 0 'b'
       $ coverage 1 'a'
@@ -402,3 +404,5 @@ bad s = coverage 0 'b'
     xs !? i | i < length xs = Just (xs !! i)
             | otherwise     = Nothing
 
+testBad :: IO ()
+testBad = coverCheck genAscii bad
