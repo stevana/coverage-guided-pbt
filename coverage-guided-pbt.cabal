@@ -31,7 +31,6 @@ library
     Generator
     Mutator
     Queue
-    Runner
     Shrinker
     Statistics
     Test
