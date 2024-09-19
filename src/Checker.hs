@@ -2,6 +2,7 @@
 
 module Checker where
 
+import Control.Monad
 import Data.Function
 import Data.List (genericLength, unfoldr)
 import Data.List.NonEmpty (NonEmpty)
@@ -70,7 +71,7 @@ checker (Config seed numTests) (Arbitrary gen shrink mutate) prop = do
 chooseNext :: Int -> StdGen -> Gen a -> PQueue (Choice a) -> IO (Choice a)
 chooseNext n prng gen q
   | isEmptyPQueue q = do
-      let sz = (n * 3 `div` 2) `min` 10
+      let sz = (n + 3 `div` 2) `min` 10 -- XXX: maxSize config parameter
       let xs = generate sz prng (genList gen)
       t0 <- getCurrentTime
       return (newChoice xs t0)

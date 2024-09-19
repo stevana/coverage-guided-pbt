@@ -14,13 +14,24 @@ language-specific instrumentation of the software under test.
 
 ## Background and prior work
 
-* [An empirical study of the reliability of UNIX
-  utilities](https://dl.acm.org/doi/10.1145/96267.96279) (1990)
+Fuzzing has an interesting origin. It was a class
+[project](http://pages.cs.wisc.edu/~bart/fuzz/CS736-Projects-f1988.pdf) in an
+advanced OS course taught by Barton Miller at the University of Wisconsin in
+1988.
 
-* AFL
+A couple of years later Barton et al published [*An empirical study of the
+reliability of UNIX utilities*](https://dl.acm.org/doi/10.1145/96267.96279)
+(1990).
+
+The way Barton's fuzzer worked was just to generate random bytes and feed it to
+command line tools and see if they crashed.
+
+* AFL (2013), https://lcamtuf.coredump.cx/afl/historical_notes.txt
  
 * [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
-  [FuzzTest](https://github.com/google/fuzztest)
+  [FuzzTest](https://github.com/google/fuzztest) ("It is a first-of-its-kind
+  tool that bridges the gap between fuzzing and property-based testing")
+
 * [honggfuzz](https://github.com/google/honggfuzz)
 
 Coverage-guided fuzzers, such as [American Fuzzy
@@ -39,7 +50,12 @@ etc.
   - But coverage-guided testing was [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3) 
 
 * [Crowbar](https://github.com/stedolan/crowbar)
-* [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
+
+* [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)? Not released, lives in
+  an [unmaintained
+  branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
+  that [doesn't compile](https://github.com/QuickChick/QuickChick/issues/277)?
+  - coverage info is [same as in AFL](https://youtu.be/RR6c_fiMfJQ?t=2226)
 
 * Shae "shapr" Erisson's post [*Run property tests until coverage stops
   increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html)
@@ -161,6 +177,12 @@ The full source code is available
 ## Testing some examples with the prototype
 
 ## Conclusion and further work
+
+* Makes more sense for stateful systems than pure functions? Or atleast
+  properties that expect a sequence of inputs?
+
+* Don't rerun all commands for every newly generate command
+  + only reset the system when shrinking
 
 * Problem of strategy (pick something as basis for progress): coverage, logs,
   value of memory, helps bootstap the process. Generalise to support more?

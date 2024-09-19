@@ -15,10 +15,24 @@ language-specific instrumentation of the software under test.
 
 ## Background and prior work
 
-- AFL
+Fuzzing has an interesting origin. It was a class
+[project](http://pages.cs.wisc.edu/~bart/fuzz/CS736-Projects-f1988.pdf)
+in an advanced OS course taught by Barton Miller at the University of
+Wisconsin in 1988.
+
+A couple of years later Barton et al published [*An empirical study of
+the reliability of UNIX
+utilities*](https://dl.acm.org/doi/10.1145/96267.96279) (1990).
+
+The way Barton's fuzzer worked was just to generate random bytes and
+feed it to command line tools and see if they crashed.
+
+- AFL (2013), <https://lcamtuf.coredump.cx/afl/historical_notes.txt>
 
 - [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
-  [FuzzTest](https://github.com/google/fuzztest)
+  [FuzzTest](https://github.com/google/fuzztest) ("It is a
+  first-of-its-kind tool that bridges the gap between fuzzing and
+  property-based testing")
 
 - [honggfuzz](https://github.com/google/honggfuzz)
 
@@ -42,7 +56,14 @@ also arrays of ints, etc.
 
 - [Crowbar](https://github.com/stedolan/crowbar)
 
-- [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)?
+- [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)? Not released,
+  lives in an [unmaintained
+  branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
+  that [doesn't
+  compile](https://github.com/QuickChick/QuickChick/issues/277)?
+
+  - coverage info is [same as in
+    AFL](https://youtu.be/RR6c_fiMfJQ?t=2226)
 
 - Shae "shapr" Erisson's post [*Run property tests until coverage stops
   increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023)
@@ -98,6 +119,9 @@ Great, but where do we get this coverage information from?
 
 AFL and `go-fuzz` both get it from the compiler.
 
+AFL injects code into every [basic
+block](https://en.wikipedia.org/wiki/Basic_block).
+
 When I've been thinking about how to implement coverage-guided
 property-based testing in the past, I always got stuck thinking that
 parsing the coverage output from the compiler in between test case
@@ -138,15 +162,23 @@ testing already has?
 
 ## Prototype implementation
 
+- QuickCheck as defined in the appendix of the original
+  [paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000)
+
+  - Extended with shrinking
+  - Extended monadic properties
+
 - Edsko de Vries'
   [Mini-QuickCheck](https://www.well-typed.com/blog/2019/05/integrated-shrinking/)
 
 ``` haskell
 type Seed = Int
 
+type Shrinking = Bool
+
 checkM :: forall a c. (Show a, Show c)
-       => Seed -> Int -> Integrated a -> IO () -> ([a] -> Coverage c -> IO Bool) -> IO ()
-checkM seed numTests gen reset p = do
+       => Seed -> Int -> Gen a -> (Shrinking -> Coverage c -> [a] -> IO Bool) -> IO ()
+checkM seed numTests gen p = do
   coverage <- emptyCoverage
   mShrinkSteps <- go numTests coverage 0 []
   case mShrinkSteps of
@@ -155,21 +187,20 @@ checkM seed numTests gen reset p = do
       cov <- readCoverage coverage
       putStrLn $ "Coverage: " ++ show cov
     Just shrinkSteps -> do
-      putStrLn $ "Failed: " ++ case shrinkSteps of
-                                 [] -> error "impossible: shrinkSteps empty"
-                                 (s : _ss) -> show s
+      putStrLn $ "Failed: " ++ show (NonEmpty.head shrinkSteps)
       putStrLn $ "Shrinking: " ++ show shrinkSteps
-      putStrLn $ "Shrunk: " ++ show (last shrinkSteps)
+      putStrLn $ "#Shrinks: " ++ show (NonEmpty.length shrinkSteps - 1)
+      putStrLn $ "Shrunk: " ++ show (NonEmpty.last shrinkSteps)
       cov <- readCoverage coverage
       putStrLn $ "Coverage: " ++ show cov
   where
-    go :: Int -> Coverage c -> Int -> [a] -> IO (Maybe [[a]])
+    go :: Int -> Coverage c -> Int -> [a] -> IO (Maybe (NonEmpty [a]))
     go 0 _cov _before _cmds = return Nothing
     go n _cov  before  cmds = do
-
-      let cmd = root $ runIntegrated (mkStdGen (seed + n)) gen
+      let sz  = n * 3 `div` 2
+      let cmd = generate sz (mkStdGen (seed + n)) gen
       cmds' <- randomMutation cmds cmd
-      (ok, after) <- withCoverage (p cmds')
+      (ok, after) <- withCoverage (\cov -> p False cov cmds')
       if ok
       then do
         let diff = compareCoverage before after
@@ -185,16 +216,10 @@ checkM seed numTests gen reset p = do
             go (n - 1) _cov before cmds
       else do
         putStrLn "\n(Where `p` and `.` indicate picked and dropped values respectively.)"
-        Just <$> minimise (flip p _cov) reset (unfoldTree (shrinkList (const [])) cmds')
+        Just <$> shrinker (p True _cov) (shrinkList (const [])) cmds'
 ```
 
 ``` haskell
-minimise :: (a -> IO Bool) -> IO () -> Tree a -> IO [a]
-minimise p reset (Node x xs) = do
-  xs' <- filterM (\x' -> reset >> fmap not (p (root x'))) xs
-  case xs' of
-    []   -> return [x]
-    x':_ -> (:) <$> pure x <*> minimise p reset x'
 ```
 
 ``` haskell
@@ -230,6 +255,7 @@ checkCoverage :: Coverage a -> IO Int
 checkCoverage (Coverage ref) = Set.size <$> readIORef ref
 
 data CoverageDiff = Decreased | Same | Increased
+  deriving Eq
 
 compareCoverage :: Int -> Int -> CoverageDiff
 compareCoverage before after = case compare after before of
@@ -246,23 +272,9 @@ withCoverage k = do
 ```
 
 ``` haskell
-newtype Gen a = Gen (StdGen -> a)
+newtype Gen a = Gen (Size -> StdGen -> a)
 
-instance Functor Gen where
-  fmap f (Gen k) = Gen (f . k)
-
-runGen :: StdGen -> Gen a -> a
-runGen prng (Gen g) = g prng
-
-instance Applicative Gen where
-  pure x = Gen $ \_prng -> x
-  (<*>)  = ap
-
-instance Monad Gen where
-  return  = pure
-  x >>= f = Gen $ \prng ->
-    let (prngX, prngF) = split prng
-    in runGen prngF (f (runGen prngX x))
+type Size = Int
 ```
 
 The full source code is available
@@ -271,6 +283,26 @@ The full source code is available
 ## Testing some examples with the prototype
 
 ## Conclusion and further work
+
+- Makes more sense for stateful systems than pure functions? Or atleast
+  properties that expect a sequence of inputs?
+
+- Don't rerun all commands for every newly generate command
+
+  - only reset the system when shrinking
+
+- Problem of strategy (pick something as basis for progress): coverage,
+  logs, value of memory, helps bootstap the process. Generalise to
+  support more?
+
+- Local maxima?
+
+- Problem of tactics: picking a good input distributed for the testing
+  problem at hand. Make previous input influence the next input?
+  Dependent events, e.g. if one packet gets lost, there's a higher
+  chance that the next packet will be lost as well.
+
+- Save `(Coverage, Mutation, Frequency, Coverage)` stats?
 
 - More realistic example, e.g.: leader election, transaction rollback,
   failover?
@@ -281,6 +313,26 @@ The full source code is available
 
 - Use size parameter to implement AFL heuristic for choosing integers?
   Or just use `frequency`?
+
+- Type-generic mutation?
+
+## See also
+
+- <https://aflplus.plus/docs/power_schedules/>
+- <https://github.com/mboehme/aflfast>
+- <https://mboehme.github.io/paper/CCS16.pdf>
+- <https://carstein.github.io/fuzzing/2020/04/18/writing-simple-fuzzer-1.html>
+- <https://carstein.github.io/fuzzing/2020/04/25/writing-simple-fuzzer-2.html>
+- <https://carstein.github.io/fuzzing/2020/05/02/writing-simple-fuzzer-3.html>
+- <https://carstein.github.io/fuzzing/2020/05/21/writing-simple-fuzzer-4.html>
+- [How Antithesis finds bugs (with help from the Super Mario
+  Bros)](https://antithesis.com/blog/sdtalk/)
+- Swarm testing
+- [AFL
+  "whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt)
+- [AFL mutation
+  heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html)
+- <https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html>
 
 [^1]: Here's Dan's example in full:
 
