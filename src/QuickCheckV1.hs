@@ -153,7 +153,7 @@ instance Arbitrary Bool where
   coarbitrary b = if b then variant 0 else variant 1
 
 instance Arbitrary Char where
-  arbitrary     = choose (32,255) >>= \n -> return (chr n)
+  arbitrary     = choose (32,126) >>= \n -> return (chr n)
   coarbitrary n = variant (ord n)
 
 instance Arbitrary Int where
@@ -349,13 +349,10 @@ testsC' config gen prop = tests config genResult
     Prop genResult = forAll (genList gen) prop
     genList gen = sized $ \len -> replicateM len gen
 
-coverCheck :: Show a => Gen a -> ([a] -> Property)  -> IO ()
-coverCheck gen prop = do
+coverCheck :: (Arbitrary a, Show a) => ([a] -> Property)  -> IO ()
+coverCheck prop = do
   rnd <- newStdGen
-  testsC verbose { maxTest = 2^7*4*2 } gen prop [] 0 rnd 0 0 []
-
-genAscii :: Gen Char
-genAscii = chr <$> choose (0, 127)
+  testsC verbose { maxTest = 2^7*4*2 } arbitrary prop [] 0 rnd 0 0 []
 
 testsC :: Show a => Config -> Gen a -> ([a] -> Property) -> [a] -> Int
        -> StdGen -> Int -> Int -> [[String]] -> IO ()
@@ -405,4 +402,4 @@ bad s = coverage 0 'b'
             | otherwise     = Nothing
 
 testBad :: IO ()
-testBad = coverCheck genAscii bad
+testBad = coverCheck bad
