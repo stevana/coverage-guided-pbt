@@ -267,115 +267,71 @@ testing already has?
   [Mini-QuickCheck](https://www.well-typed.com/blog/2019/05/integrated-shrinking/)
 
 ``` haskell
-type Seed = Int
+newtype Gen a = Gen (Int -> StdGen -> a)
 
-type Shrinking = Bool
+generate :: Int -> StdGen -> Gen a -> a
+generate n rnd (Gen m) = m size rnd'
+ where
+  (size, rnd') = randomR (0, n) rnd
+```
 
-checkM :: forall a c. (Show a, Show c)
-       => Seed -> Int -> Gen a -> (Shrinking -> Coverage c -> [a] -> IO Bool) -> IO ()
-checkM seed numTests gen p = do
-  coverage <- emptyCoverage
-  mShrinkSteps <- go numTests coverage 0 []
-  case mShrinkSteps of
-    Nothing -> do
-      putStrLn "\nOK"
-      cov <- readCoverage coverage
-      putStrLn $ "Coverage: " ++ show cov
-    Just shrinkSteps -> do
-      putStrLn $ "Failed: " ++ show (NonEmpty.head shrinkSteps)
-      putStrLn $ "Shrinking: " ++ show shrinkSteps
-      putStrLn $ "#Shrinks: " ++ show (NonEmpty.length shrinkSteps - 1)
-      putStrLn $ "Shrunk: " ++ show (NonEmpty.last shrinkSteps)
-      cov <- readCoverage coverage
-      putStrLn $ "Coverage: " ++ show cov
-  where
-    go :: Int -> Coverage c -> Int -> [a] -> IO (Maybe (NonEmpty [a]))
-    go 0 _cov _before _cmds = return Nothing
-    go n _cov  before  cmds = do
-      let sz  = n * 3 `div` 2
-      let cmd = generate sz (mkStdGen (seed + n)) gen
-      cmds' <- randomMutation cmds cmd
-      (ok, after) <- withCoverage (\cov -> p False cov cmds')
-      if ok
-      then do
-        let diff = compareCoverage before after
-        case diff of
-          Increased -> do
-            -- putStr "p"
-            go (n - 1) _cov after cmds'
-          Same      -> do
-            -- putStr "p"
-            go (n - 1) _cov after cmds'
-          Decreased -> do
-            -- putStr "."
-            go (n - 1) _cov before cmds
-      else do
-        putStrLn "\n(Where `p` and `.` indicate picked and dropped values respectively.)"
-        Just <$> shrinker (p True _cov) (shrinkList (const [])) cmds'
+``` haskell
+rand :: Gen StdGen
+rand = Gen (\_n r -> r)
+```
+
+``` haskell
+sized :: (Int -> Gen a) -> Gen a
+sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
+```
+
+``` haskell
+coverCheck :: (Arbitrary a, Show a) => Config -> ([a] -> Property)  -> IO ()
+coverCheck config prop = do
+  rnd <- newStdGen
+  testsC config arbitrary prop [] 0 rnd 0 0 []
 ```
 
 ``` haskell
 ```
 
 ``` haskell
-randomMutation :: [a] -> a -> IO [a]
-randomMutation [] x = return [x]
-randomMutation xs x = do
-  appendOrUpdate <- randomIO -- XXX: nondet
-  if appendOrUpdate
-  then return (xs ++ [x])
-  else do
-    ix <- randomRIO (0, length xs - 1)
-    return (update ix xs x)
-  where
-    update :: Int -> [a] -> a -> [a]
-    update ix xs0 x' = case splitAt ix xs0 of
-      (before, _x : after) -> before ++ x' : after
-      (_, []) -> error "update: impossible"
 ```
 
 ``` haskell
-newtype Coverage a = Coverage (IORef (Set a))
+label :: Testable a => String -> a -> Property
+label s a = Prop (add `fmap` evaluate a)
+ where
+  add res = res{ stamp = s : stamp res }
 
-emptyCoverage :: IO (Coverage a)
-emptyCoverage = Coverage <$> newIORef Set.empty
-
-addCoverage :: Ord a => Coverage a -> a -> IO ()
-addCoverage (Coverage ref) x = modifyIORef' ref (Set.insert x)
-
-readCoverage :: Coverage a -> IO (Set a)
-readCoverage (Coverage ref) = readIORef ref
-
-checkCoverage :: Coverage a -> IO Int
-checkCoverage (Coverage ref) = Set.size <$> readIORef ref
-
-data CoverageDiff = Decreased | Same | Increased
-  deriving Eq
-
-compareCoverage :: Int -> Int -> CoverageDiff
-compareCoverage before after = case compare after before of
-  LT -> Decreased
-  EQ -> Same
-  GT -> Increased
-
-withCoverage :: (Coverage c -> IO a) -> IO (a, Int)
-withCoverage k = do
-  c <- emptyCoverage
-  x <- k c
-  after <- checkCoverage c
-  return (x, after)
-```
-
-``` haskell
-newtype Gen a = Gen (Size -> StdGen -> a)
-
-type Size = Int
+classify :: Testable a => Bool -> String -> a -> Property
+classify True  name = label name
+classify False _    = property
 ```
 
 The full source code is available
 [here](https://github.com/stevana/coverage-guided-pbt).
 
 ## Testing some examples with the prototype
+
+``` haskell
+bad :: String -> Property
+bad s = coverage 0 'b'
+      $ coverage 1 'a'
+      $ coverage 2 'd'
+      $ coverage 3 '!' $ if s == "bad!" then False else True
+
+  where
+    coverage :: Testable a => Int -> Char -> a -> Property
+    coverage i ch = classify (s !? i == Just ch) [ch]
+
+    (!?) :: [a] -> Int -> Maybe a
+    xs !? i | i < length xs = Just (xs !! i)
+            | otherwise     = Nothing
+
+testBad :: IO ()
+testBad = coverCheck (verbose { maxTest = 2^7*4*2 }) bad
+```
 
 ## Conclusion and further work
 

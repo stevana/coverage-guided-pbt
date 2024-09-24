@@ -238,25 +238,33 @@ using the internal notion of coverage that property-based testing already has?
 * Edsko de Vries'
   [Mini-QuickCheck](https://www.well-typed.com/blog/2019/05/integrated-shrinking/)
 
-``` {.haskell include=src/Test.hs snippet=check}
+``` {.haskell include=src/QuickCheckV1.hs snippet=Gen}
 ```
 
-``` {.haskell include=src/Test.hs snippet=shrink}
+``` {.haskell include=src/QuickCheckV1.hs snippet=rand}
 ```
 
-``` {.haskell include=src/Test.hs snippet=mutate}
+``` {.haskell include=src/QuickCheckV1.hs snippet=sized}
 ```
 
-``` {.haskell include=src/Coverage.hs snippet=Coverage}
+``` {.haskell include=src/QuickCheckV1.hs snippet=coverCheck}
 ```
 
-``` {.haskell include=src/Generator.hs snippet=Gen}
+``` {.haskell include=src/QuickCheckV1.hs snippet=testC}
 ```
 
+``` {.haskell include=src/QuickCheckV1.hs snippet=testCPrime}
+```
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=classify}
+```
 The full source code is available
 [here](https://github.com/stevana/coverage-guided-pbt).
 
 ## Testing some examples with the prototype
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=bad}
+```
 
 ## Conclusion and further work
 

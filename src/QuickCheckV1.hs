@@ -64,14 +64,18 @@ infix  1 `classify`
 newtype Gen a = Gen (Int -> StdGen -> a)
 -- end snippet
 
+-- start snippet sized
 sized :: (Int -> Gen a) -> Gen a
 sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
+-- end snippet
 
 resize :: Int -> Gen a -> Gen a
 resize n (Gen m) = Gen (\_ r -> m n r)
 
+-- start snippet rand
 rand :: Gen StdGen
-rand = Gen (\n r -> r)
+rand = Gen (\_n r -> r)
+-- end snippet
 
 promote :: (a -> Gen b) -> Gen (a -> b)
 promote f = Gen (\n r -> \a -> let Gen m = f a in m n r)
@@ -82,6 +86,7 @@ variant v (Gen m) = Gen (\n r -> m n (rands r !! (v+1)))
   rands r0 = r1 : rands r2 where (r1, r2) = split r0
 
 -- start snippet Gen
+
 generate :: Int -> StdGen -> Gen a -> a
 generate n rnd (Gen m) = m size rnd'
  where
@@ -115,7 +120,7 @@ elements :: [a] -> Gen a
 elements xs = (xs !!) `fmap` choose (0, length xs - 1)
 
 vector :: Arbitrary a => Int -> Gen [a]
-vector n = sequence [ arbitrary | i <- [1..n] ]
+vector n = sequence [ arbitrary | _i <- [1..n] ]
 
 oneof :: [Gen a] -> Gen a
 oneof gens = elements gens >>= id
@@ -204,11 +209,13 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (a -> b) where
 --------------------------------------------------------------------
 -- Testable
 
+-- start snippet Result
 data Result
   = Result { ok :: Maybe Bool, stamp :: [String], arguments :: [String] }
 
 nothing :: Result
 nothing = Result{ ok = Nothing, stamp = [], arguments = [] }
+-- end snippet
 
 newtype Property
   = Prop (Gen Result)
@@ -249,6 +256,7 @@ forAll gen body = Prop $
 True  ==> a = property a
 False ==> a = property ()
 
+-- start snippet classify
 label :: Testable a => String -> a -> Property
 label s a = Prop (add `fmap` evaluate a)
  where
@@ -257,6 +265,7 @@ label s a = Prop (add `fmap` evaluate a)
 classify :: Testable a => Bool -> String -> a -> Property
 classify True  name = label name
 classify False _    = property
+-- end snippet
 
 trivial :: Testable a => Bool -> a -> Property
 trivial = (`classify` "trivial")
@@ -346,17 +355,22 @@ done mesg ntest stamps =
 --------------------------------------------------------------------
 -- the end.
 
+-- start snippet testsCPrime
 testsC' :: Show a => Config -> Gen a -> ([a] -> Property) -> StdGen -> Int -> Int -> [[String]] -> IO ()
 testsC' config gen prop = tests config genResult
   where
     Prop genResult = forAll (genList gen) prop
     genList gen = sized $ \len -> replicateM len gen
+-- end snippet
 
-coverCheck :: (Arbitrary a, Show a) => ([a] -> Property)  -> IO ()
-coverCheck prop = do
+-- start snippet coverCheck
+coverCheck :: (Arbitrary a, Show a) => Config -> ([a] -> Property)  -> IO ()
+coverCheck config prop = do
   rnd <- newStdGen
-  testsC verbose { maxTest = 2^7*4*2 } arbitrary prop [] 0 rnd 0 0 []
+  testsC config arbitrary prop [] 0 rnd 0 0 []
+-- end snippet
 
+-- start snippet testsC
 testsC :: Show a => Config -> Gen a -> ([a] -> Property) -> [a] -> Int
        -> StdGen -> Int -> Int -> [[String]] -> IO ()
 testsC config gen prop xs cov rnd0 ntest nfail stamps
@@ -387,9 +401,11 @@ testsC config gen prop xs cov rnd0 ntest nfail stamps
        result         = result_ {arguments = show xs' : arguments result_ }
        (rnd1,rnd2)    = split rnd0
        (rnd3,rnd4)    = split rnd2
+-- end snippet
 
 ------------------------------------------------------------------------
 
+-- start snippet bad
 bad :: String -> Property
 bad s = coverage 0 'b'
       $ coverage 1 'a'
@@ -405,4 +421,5 @@ bad s = coverage 0 'b'
             | otherwise     = Nothing
 
 testBad :: IO ()
-testBad = coverCheck bad
+testBad = coverCheck (verbose { maxTest = 2^7*4*2 }) bad
+-- end snippet
