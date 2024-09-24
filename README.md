@@ -49,7 +49,7 @@ thinking](https://lcamtuf.coredump.cx/afl/historical_notes.txt) about
 how fuzzing can be combined with [evolutionary
 algorithms](https://en.wikipedia.org/wiki/Evolutionary_algorithm).
 
-the idea being that
+XXX: The idea being that...
 
 - AFL (2013),
 
@@ -75,12 +75,14 @@ also arrays of ints, etc.
 
 - The idea of combining coverage-guidance and PBT
 
-- Now let's have a look at what has happend since Dan wrote his post.
+- Now let's have a look at what has happend since Dan's post.
 
 - First off, at some point he added an update to his post where he
   explicitly mentiones:
 
   - Go-fuzz?
+
+    - <https://adalogics.com/blog/structure-aware-go-fuzzing-complex-types>
 
   - Hypothesis
 
@@ -91,14 +93,26 @@ also arrays of ints, etc.
 
 - When you search for coverage guided property-based testing
 
-- [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)? Not released,
-  lives in an [unmaintained
+- [FuzzChick](https://dl.acm.org/doi/10.1145/3360607) (2019). Not
+  released, lives in an [unmaintained
   branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
   that [doesn't
   compile](https://github.com/QuickChick/QuickChick/issues/277)?
 
   - coverage info is [same as in
     AFL](https://youtu.be/RR6c_fiMfJQ?t=2226)
+
+- FuzzChick, related work mentions:
+
+- [JQF + Zest: Coverage-guided semantic fuzzing for
+  Java](https://github.com/rohanpadhye/jqf)?
+
+- [Crowbar](https://github.com/stedolan/crowbar)
+
+  - [extended abstract from OCaml
+    workshop](https://github.com/ocaml/ocaml.org-media/blob/086fc25105cbccb188c28ec74126d72962921ff8/meetings/ocaml/2017/extended-abstract__2017__stephen-dolan_mindy-preston__testing-with-crowbar.pdf)
+    (2017)
+  - Uses fuzzing indirectly to generate the data?
 
 - [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
   [FuzzTest](https://github.com/google/fuzztest) ("It is a
@@ -107,21 +121,22 @@ also arrays of ints, etc.
 
 - [honggfuzz](https://github.com/google/honggfuzz)
 
-- [Crowbar](https://github.com/stedolan/crowbar)
+  - open PR to add it to cargo fuzz:
+    <https://github.com/rust-fuzz/book/pull/14>
+
+- [Structure-aware fuzzing using libfuzzer-sys in
+  Rust](https://rust-fuzz.github.io/book/cargo-fuzz/structure-aware-fuzzing.html)
 
 - [MUTAGEN: Reliable Coverage-Guided, Property-Based Testing using
   Exhaustive
   Mutations](https://www.mista.me/assets/pdf/icst23-preprint.pdf) (2023)
 
-- Shae "shapr" Erisson's post [*Run property tests until coverage stops
-  increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023)
-  and [trynocular](https://github.com/shapr/trynocular) library.
-
-- [JQF + Zest: Coverage-guided semantic fuzzing for
-  Java](https://github.com/rohanpadhye/jqf)?
-
-- [Structure-aware fuzzing using libfuzzer-sys in
-  Rust](https://rust-fuzz.github.io/book/cargo-fuzz/structure-aware-fuzzing.html)
+  - <https://github.com/OctopiChalmers/mutagen/>
+  - Uses GHC
+    [plugin](https://github.com/OctopiChalmers/mutagen/blob/main/src/Test/Mutagen/Tracer/Plugin.hs)
+    to annotate source code with coverage information of: function
+    clauses, case statements, multi-way ifs, and each branch of
+    if-then-else expressions
 
 ## Examples and the main idea of coverage-guidance
 
@@ -162,6 +177,8 @@ effectively reduce the problem to only need
 $O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8 \cdot 4) =
 O(2^{10}) = 1024$ tries. With other words coverage-guidence turns an
 exponential problem into a polynomial problem!
+
+## Prototype implementation
 
 Great, but where do we get this coverage information from?
 
@@ -208,12 +225,9 @@ So the question is: can we implement coverage-guided property-based
 testing using the internal notion of coverage that property-based
 testing already has?
 
-## Prototype implementation
-
 - QuickCheck as defined in the appendix of the original
   [paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000)
 
-  - Extended with shrinking
   - Extended monadic properties
 
 - Edsko de Vries'
@@ -382,6 +396,11 @@ The full source code is available
   "whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt)
 - [AFL mutation
   heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html)
+- Shae "shapr" Erisson's post [*Run property tests until coverage stops
+  increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023) (2023)
+  and [trynocular](https://github.com/shapr/trynocular) library.
+  - This only uses coverage as a stopping condition, not to actually
+    drive the generation...
 
 [^1]: Here's Dan's example in full:
 
