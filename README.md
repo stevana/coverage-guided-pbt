@@ -13,6 +13,46 @@ scratch.
 The technique is programming language agnostic and doesn't rely on any
 language-specific instrumentation of the software under test.
 
+## Motivation
+
+Before we start, let me try to motivate why one would want to combine
+coverage-guided fuzzing and property-based testing to begin with.
+
+This example is due to Dmitry Vyukov, the main author of
+[go-fuzz](https://github.com/dvyukov/go-fuzz), but it's basically an
+easier to understand version of the example from Dan's post[^1].
+
+    func sut(input []byte) {
+        slice := []int{}
+        if input[0] == 'A' {
+            if input[1] == 'B' {
+                if input[2] == 'C' {
+                    if input[3] == 'D' {
+                        slice[input[4]] = 1 // out-of-bounds here
+                    }
+                }
+            }
+        }
+    }
+
+Even if we generate random inputs of exactly the length 4, it would
+still take
+$O(2^8 \cdot 2^8 \cdot 2^8 \cdot 2^8) = O((2^8)^4) = O(2^{32}) = 4294967296$
+tries to trigger the bug (and obviously even longer if we tried arrays
+of varying length).
+
+With coverage-guidance we keep track of inputs that resulted in
+increased coverage. So, for example, if we generate the array
+`[]byte{'A'}` we get further into the nested ifs, and so we take note of
+that and start generating longer arrays that start with 'A' and see if
+we get even further, etc.
+
+By building on previous succeses in getting more coverage, we can
+effectively reduce the problem to only need
+$O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8 \cdot 4) =
+O(2^{10}) = 1024$ tries. With other words coverage-guidence turns an
+exponential problem into a polynomial problem!
+
 ## Background and prior work
 
 Fuzzing has an interesting origin. It was a class
@@ -62,8 +102,27 @@ also arrays of ints, etc.
 
 - <https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html>
 
+- [AFL
+  "whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt)
+
+- [AFL mutation
+  heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html)
+
 - AFL is the tool that Dan Luu explicitly mentions, so let's stop here
   and go back to his point, before looking at else has happened since
+
+- "Note: AFL hasn't been updated for a couple of years; while it should
+  > still work fine, a more complex fork with a variety of improvements
+  > and additional features, known as AFL++, is available from other
+  > members of the community and is worth checking out." --
+  > <https://lcamtuf.coredump.cx/afl/>
+
+  - [AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf) (2020)
+    incorporates all of
+    [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
+    schedules](https://aflplus.plus/docs/power_schedules/) and adds some
+    news ones
+  - <https://github.com/mboehme/aflfast>
 
 - PBT
 
@@ -71,7 +130,10 @@ also arrays of ints, etc.
   [history](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#the-history-of-property-based-testing)
   of property-based testing and explained how it
   [works](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#pure-property-based-testing-recap)
-  already, so I won't take up space by repeating myself here.
+  already, so I won't take up space by repeating myself here. Let's just
+  note that the [original
+  paper](https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf)
+  on property-based testing was published in 2000.
 
 - The idea of combining coverage-guidance and PBT
 
@@ -82,6 +144,8 @@ also arrays of ints, etc.
 
   - Go-fuzz?
 
+    - writing properties using go-fuzz:
+      <https://news.ycombinator.com/item?id=40876822>
     - <https://adalogics.com/blog/structure-aware-go-fuzzing-complex-types>
 
   - Hypothesis
@@ -138,47 +202,16 @@ also arrays of ints, etc.
     clauses, case statements, multi-way ifs, and each branch of
     if-then-else expressions
 
-## Examples and the main idea of coverage-guidance
+Imperative languages such as C++, Go, Rust, and Java seem ahead of
+functional languages when it comes to combining coverage-guided fuzzing
+and property-based testing.
 
-To get a better understanding of why coverage-guidence is needed, let's
-consider a concrete example.
-
-This example is due to Dmitry Vyukov, the main author of
-[go-fuzz](https://github.com/dvyukov/go-fuzz), but it's basically an
-easier to understand version of the example from Dan's post[^1].
-
-    func sut(input []byte) {
-        slice := []int{}
-        if input[0] == 'A' {
-            if input[1] == 'B' {
-                if input[2] == 'C' {
-                    if input[3] == 'D' {
-                        slice[input[4]] = 1 // out-of-bounds here
-                    }
-                }
-            }
-        }
-    }
-
-Even if we generate random inputs of exactly the length 4, it would
-still take
-$O(2^8 \cdot 2^8 \cdot 2^8 \cdot 2^8) = O((2^8)^4) = O(2^{32}) = 4294967296$
-tries to trigger the bug (and obviously even longer if we tried arrays
-of varying length).
-
-With coverage-guidance we keep track of inputs that resulted in
-increased coverage. So, for example, if we generate the array
-`[]byte{'A'}` we get further into the nested ifs, and so we take note of
-that and start generating longer arrays that start with 'A' and see if
-we get even further, etc.
-
-By building on previous succeses in getting more coverage, we can
-effectively reduce the problem to only need
-$O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8 \cdot 4) =
-O(2^{10}) = 1024$ tries. With other words coverage-guidence turns an
-exponential problem into a polynomial problem!
+Let's try to change that by implementing a small functional programming
+version, based on the original property-based testing implementation.
 
 ## Prototype implementation
+
+If we want
 
 Great, but where do we get this coverage information from?
 
@@ -382,9 +415,6 @@ The full source code is available
 
 ## See also
 
-- <https://aflplus.plus/docs/power_schedules/>
-- <https://github.com/mboehme/aflfast>
-- <https://mboehme.github.io/paper/CCS16.pdf>
 - <https://carstein.github.io/fuzzing/2020/04/18/writing-simple-fuzzer-1.html>
 - <https://carstein.github.io/fuzzing/2020/04/25/writing-simple-fuzzer-2.html>
 - <https://carstein.github.io/fuzzing/2020/05/02/writing-simple-fuzzer-3.html>
@@ -392,12 +422,8 @@ The full source code is available
 - [How Antithesis finds bugs (with help from the Super Mario
   Bros)](https://antithesis.com/blog/sdtalk/)
 - Swarm testing
-- [AFL
-  "whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt)
-- [AFL mutation
-  heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html)
 - Shae "shapr" Erisson's post [*Run property tests until coverage stops
-  increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023) (2023)
+  increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023)
   and [trynocular](https://github.com/shapr/trynocular) library.
   - This only uses coverage as a stopping condition, not to actually
     drive the generation...
