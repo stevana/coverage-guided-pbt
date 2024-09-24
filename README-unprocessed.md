@@ -16,23 +16,42 @@ language-specific instrumentation of the software under test.
 
 Fuzzing has an interesting origin. It was a class
 [project](http://pages.cs.wisc.edu/~bart/fuzz/CS736-Projects-f1988.pdf) in an
-advanced OS course taught by Barton Miller at the University of Wisconsin in
-1988.
+advanced operating systems course taught by Barton Miller at the University of
+Wisconsin in 1988.
+
+The project was inspired by the observation that back then, if you logged into
+your workstation via a dail-up modem from home and it rained, then frequently
+random characters would appear in the terminal. The line noise wasn't the
+surprising thing, but rather that the extra characters would sometimes crash
+the program that they tried to invoke.
+
+Among these programs were basic utilities such as vi, mail, cc, make, sed, awk,
+sort, etc, and it was reasonable to expect that these would give an error
+message rather than crash and core dump if fed with some extra characters
+caused by the rain.
+
+So the project set out to basically recreate what the rain did, but more
+effectively, but essentially generating random noise (stream of bytes) and
+feeding that to different utilities and see if they crashed.
 
 A couple of years later Barton et al published [*An empirical study of the
 reliability of UNIX utilities*](https://dl.acm.org/doi/10.1145/96267.96279)
 (1990).
 
-The way Barton's fuzzer worked was just to generate random bytes and feed it to
-command line tools and see if they crashed.
+Inserting random characters was effective in finding corner cases where the
+programmers forgot to properly validate the input from the user.
 
-* AFL (2013), https://lcamtuf.coredump.cx/afl/historical_notes.txt
- 
-* [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
-  [FuzzTest](https://github.com/google/fuzztest) ("It is a first-of-its-kind
-  tool that bridges the gap between fuzzing and property-based testing")
+However it wouldn't trigger bugs hiding deeper under the surface.
 
-* [honggfuzz](https://github.com/google/honggfuzz)
+This changed around 2007 when people [started
+thinking](https://lcamtuf.coredump.cx/afl/historical_notes.txt) about how
+fuzzing can be combined with [evolutionary
+algorithms](https://en.wikipedia.org/wiki/Evolutionary_algorithm). 
+
+the idea
+being that
+
+* AFL (2013), 
 
 Coverage-guided fuzzers, such as [American Fuzzy
 Lop](https://lcamtuf.coredump.cx/afl/) (AFL), have been very successful in
@@ -41,21 +60,52 @@ bytes as input. That means any kind of programs that takes user strings,
 command line arguments or files as inputs, parsers, but also arrays of ints,
 etc.
 
+ 
+* https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html
+
+* AFL is the tool that Dan Luu explicitly mentions, so let's stop here and go
+  back to his point, before looking at else has happened since
+
 * PBT
 
-* Go-fuzz?
+* I've written about the
+  [history](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#the-history-of-property-based-testing)
+  of property-based testing and explained how it
+  [works](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#pure-property-based-testing-recap)
+  already, so I won't take up space by repeating myself here.
 
-* Hypothesis 
-  - Has notion of coverage: https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event) 
-  - But coverage-guided testing was [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3) 
 
-* [Crowbar](https://github.com/stedolan/crowbar)
+* The idea of combining coverage-guidance and PBT
+
+* Now let's have a look at what has happend since Dan wrote his post. 
+
+* First off, at some point he added an update to his post where he explicitly mentiones:
+
+  + Go-fuzz?
+  
+  + Hypothesis 
+    - Has notion of coverage: https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event) 
+    - But coverage-guided testing was [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3) 
+
+* When you search for coverage guided property-based testing 
 
 * [FuzzChick](https://dl.acm.org/doi/10.1145/3360607)? Not released, lives in
   an [unmaintained
   branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
   that [doesn't compile](https://github.com/QuickChick/QuickChick/issues/277)?
   - coverage info is [same as in AFL](https://youtu.be/RR6c_fiMfJQ?t=2226)
+
+* [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
+  [FuzzTest](https://github.com/google/fuzztest) ("It is a first-of-its-kind
+  tool that bridges the gap between fuzzing and property-based testing") (2022?)
+
+* [honggfuzz](https://github.com/google/honggfuzz)
+
+* [Crowbar](https://github.com/stedolan/crowbar)
+
+* [MUTAGEN: Reliable Coverage-Guided, Property-Based Testing using Exhaustive
+  Mutations](https://www.mista.me/assets/pdf/icst23-preprint.pdf) (2023)
+  
 
 * Shae "shapr" Erisson's post [*Run property tests until coverage stops
   increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html)
@@ -205,6 +255,7 @@ The full source code is available
   use `frequency`?
 
 * Type-generic mutation?
+* sometimes_each?
 
 ## See also
 
@@ -221,7 +272,6 @@ The full source code is available
 * [AFL "whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt)
 * [AFL mutation
   heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html)
-* https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html
 
 
 

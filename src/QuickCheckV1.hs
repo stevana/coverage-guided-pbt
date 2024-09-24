@@ -60,8 +60,9 @@ infix  1 `classify`
 --------------------------------------------------------------------
 -- Generator
 
-newtype Gen a
-  = Gen (Int -> StdGen -> a)
+-- start snippet Gen
+newtype Gen a = Gen (Int -> StdGen -> a)
+-- end snippet
 
 sized :: (Int -> Gen a) -> Gen a
 sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
@@ -80,10 +81,12 @@ variant v (Gen m) = Gen (\n r -> m n (rands r !! (v+1)))
  where
   rands r0 = r1 : rands r2 where (r1, r2) = split r0
 
+-- start snippet Gen
 generate :: Int -> StdGen -> Gen a -> a
 generate n rnd (Gen m) = m size rnd'
  where
   (size, rnd') = randomR (0, n) rnd
+-- end snippet
 
 instance Functor Gen where
   fmap f m = m >>= return . f
