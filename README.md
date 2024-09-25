@@ -89,42 +89,33 @@ thinking](https://lcamtuf.coredump.cx/afl/historical_notes.txt) about
 how fuzzing can be combined with [evolutionary
 algorithms](https://en.wikipedia.org/wiki/Evolutionary_algorithm).
 
-XXX: The idea being that...
+The idea being that instead of generating random bytes all the time as
+with classical fuzzing, we can use coverage information from one test to
+mutate the input for the next test. Or to use the evolution metaphor:
+seeds that lead to better coverage are mutated with the hope that they
+will lead to even better coverage.
 
-- AFL (2013),
+One of the first, and perhaps still most widely known, such
+*coverage-guided* fuzzers is called
+[AFL](https://lcamtuf.coredump.cx/afl/) (2013).
 
-Coverage-guided fuzzers, such as [American Fuzzy
-Lop](https://lcamtuf.coredump.cx/afl/) (AFL), have been very successful
-in finding [bugs](https://lcamtuf.coredump.cx/afl/#bugs) in programs
-that take bytes as input. That means any kind of programs that takes
-user strings, command line arguments or files as inputs, parsers, but
-also arrays of ints, etc.
+To give you an idea of how powerful this idea is, check out the list of
+[bugs](https://lcamtuf.coredump.cx/afl/#bugs) that it found and this
+post about how it manages to figure out the [jpeg
+format](https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html)
+on its own.
 
-- <https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html>
+For more details about how it works, see the [AFL
+"whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt) and
+its [mutation
+heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html).
 
-- [AFL
-  "whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt)
+Since AFL is the tool that Dan explicitly mentions in his post, let's
+stop at this point and go back to this point, before looking at what
+happened since with coverage-guided fuzzers.
 
-- [AFL mutation
-  heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html)
-
-- AFL is the tool that Dan Luu explicitly mentions, so let's stop here
-  and go back to his point, before looking at else has happened since
-
-- "Note: AFL hasn't been updated for a couple of years; while it should
-  > still work fine, a more complex fork with a variety of improvements
-  > and additional features, known as AFL++, is available from other
-  > members of the community and is worth checking out." --
-  > <https://lcamtuf.coredump.cx/afl/>
-
-  - [AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf) (2020)
-    incorporates all of
-    [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
-    schedules](https://aflplus.plus/docs/power_schedules/) and adds some
-    news ones
-  - <https://github.com/mboehme/aflfast>
-
-- PBT
+Recall that Dan was asking why this idea of coverage-guidance wasn't
+present in the property-based testing tools.
 
 - I've written about the
   [history](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#the-history-of-property-based-testing)
@@ -135,9 +126,40 @@ also arrays of ints, etc.
   paper](https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf)
   on property-based testing was published in 2000.
 
-- The idea of combining coverage-guidance and PBT
+- So when Dan wrote asking about this question property-based testing
+  would have been fifteen and AFL two years old.
 
-- Now let's have a look at what has happend since Dan's post.
+- The main difference between property-based testing and fuzzing is that
+  fuzzing requires less work by the user. Simply hook up the byte
+  generator to the function that expects bytes as input and off it goes
+  looking for crashes.
+
+  Property-based testing on the other hand can test functions that take
+  arbitrary data structures as input (not just bytes), but you have to
+  describe how to generate such inputs. Fuzzing only looks for crashes,
+  while property-based testing lets you specify arbitrary relations that
+  should hold between the input and output of the system under test.
+
+  For example, we can generate binary search trees and check that after
+  we insert something into an arbitrary binary search tree then it will
+  remain sorted (when we do an inorder traversal). Fuzzing can't check
+  such properties, and generating random bytes would seldom lead to
+  valid binary search trees.
+
+  On the other hand, the coverage of property-based tests is only as
+  good as the user provided generators. Corner cases where slightly
+  modified data leads to e.g. exception handling is not explored
+  automatically, and coverage information is not used to guide the input
+  generation process.
+
+- By now we should have enough background to see that the idea of
+  combining coverage-guidance and property-based testing makes sense.
+  What if we can use user provided generators to kick start the
+  exploration, but then mutate the data and use coverage information to
+  find problems that wouldn't have been surfaced with the user provided
+  input generators alone (or recall from the example in the
+  introduction, the probability of generating the input in a single shot
+  is simply too unlikely).
 
 - First off, at some point he added an update to his post where he
   explicitly mentiones:
@@ -154,6 +176,21 @@ also arrays of ints, etc.
       <https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event>)
     - But coverage-guided testing was
       [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3)
+
+- Now let's have a look at what has happend since Dan's post.
+
+- "Note: AFL hasn't been updated for a couple of years; while it should
+  > still work fine, a more complex fork with a variety of improvements
+  > and additional features, known as AFL++, is available from other
+  > members of the community and is worth checking out." --
+  > <https://lcamtuf.coredump.cx/afl/>
+
+  - [AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf) (2020)
+    incorporates all of
+    [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
+    schedules](https://aflplus.plus/docs/power_schedules/) and adds some
+    news ones
+  - <https://github.com/mboehme/aflfast>
 
 - When you search for coverage guided property-based testing
 
@@ -283,6 +320,57 @@ rand = Gen (\_n r -> r)
 ``` haskell
 sized :: (Int -> Gen a) -> Gen a
 sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
+```
+
+``` haskell
+newtype Property
+  = Prop (Gen Result)
+
+result :: Result -> Property
+result res = Prop (return res)
+```
+
+``` haskell
+data Result
+  = Result { ok :: Maybe Bool, stamp :: [String], arguments :: [String] }
+
+nothing :: Result
+nothing = Result{ ok = Nothing, stamp = [], arguments = [] }
+```
+
+``` haskell
+class Testable a where
+  property :: a -> Property
+
+instance Testable () where
+  property _ = result nothing
+
+instance Testable Bool where
+  property b = result (nothing{ ok = Just b })
+
+instance Testable Result where
+  property res = result res
+
+instance Testable Property where
+  property prop = prop
+
+instance (Arbitrary a, Show a, Testable b) => Testable (a -> b) where
+  property f = forAll arbitrary f
+```
+
+``` haskell
+forAll :: (Show a, Testable b) => Gen a -> (a -> b) -> Property
+forAll gen body = Prop $
+  do a   <- gen
+     res <- evaluate (body a)
+     return (argument a res)
+ where
+  argument a res = res{ arguments = show a : arguments res }
+```
+
+``` haskell
+evaluate :: Testable a => a -> Gen Result
+evaluate a = gen where Prop gen = property a
 ```
 
 ``` haskell

@@ -217,15 +217,20 @@ nothing :: Result
 nothing = Result{ ok = Nothing, stamp = [], arguments = [] }
 -- end snippet
 
+-- start snippet Property
 newtype Property
   = Prop (Gen Result)
 
 result :: Result -> Property
 result res = Prop (return res)
+-- end snippet
 
+-- start snippet evaluate
 evaluate :: Testable a => a -> Gen Result
 evaluate a = gen where Prop gen = property a
+-- end snippet
 
+-- start snippet Testable
 class Testable a where
   property :: a -> Property
 
@@ -243,7 +248,9 @@ instance Testable Property where
 
 instance (Arbitrary a, Show a, Testable b) => Testable (a -> b) where
   property f = forAll arbitrary f
+-- end snippet
 
+-- start snippet forAll
 forAll :: (Show a, Testable b) => Gen a -> (a -> b) -> Property
 forAll gen body = Prop $
   do a   <- gen
@@ -251,6 +258,7 @@ forAll gen body = Prop $
      return (argument a res)
  where
   argument a res = res{ arguments = show a : arguments res }
+-- end snippet
 
 (==>) :: Testable a => Bool -> a -> Property
 True  ==> a = property a
