@@ -17,18 +17,15 @@ language-specific instrumentation of the software under test.
 Before we start, let me try to motivate why one would want to combine
 coverage-guided fuzzing and property-based testing to begin with.
 
-This example is due to Dmitry Vyukov, the main author of
-[go-fuzz](https://github.com/dvyukov/go-fuzz), but it's basically an easier to
-understand version of the example from Dan's post[^1].
+Consider the following example[^1]:
 
 ```
 func sut(input []byte) {
-    slice := []int{}
-    if input[0] == 'A' {
-        if input[1] == 'B' {
-            if input[2] == 'C' {
-                if input[3] == 'D' {
-                    slice[input[4]] = 1 // out-of-bounds here
+    if input[0] == 'b' {
+        if input[1] == 'a' {
+            if input[2] == 'd' {
+                if input[3] == '!' {
+                    panic("input must not be bad!")
                 }
             }
         }
@@ -36,10 +33,11 @@ func sut(input []byte) {
 }
 ```
 
-Even if we generate random inputs of exactly the length 4, it would still take
-$O(2^8 \cdot 2^8 \cdot 2^8 \cdot 2^8) = O((2^8)^4) = O(2^{32}) = 4294967296$
-tries to trigger the bug (and obviously even longer if we tried arrays of
-varying length).
+If we were to try to test this function with property-based testing, where we
+restrict the input to be of exactly length 4, then it would still take $O(2^8
+\cdot 2^8 \cdot 2^8 \cdot 2^8) = O((2^8)^4) = O(2^{32}) \approx 4B$ tries
+to trigger the bug! A more realistic test wouldn't fix the length of the input,
+which would make the probability of triggering the bug even worse.
 
 With coverage-guidance we keep track of inputs that resulted in increased
 coverage. So, for example, if we generate the array `[]byte{'A'}` we get
@@ -48,8 +46,10 @@ longer arrays that start with 'A' and see if we get even further, etc.
 
 By building on previous succeses in getting more coverage, we can effectively
 reduce the problem to only need $O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8 \cdot 4) =
-O(2^{10}) = 1024$ tries. With other words coverage-guidence turns an
-exponential problem into a polynomial problem!
+O(2^{10}) = 1024$ tries. 
+
+In other words coverage-guidence turns an exponential problem into a polynomial
+problem!
 
 ## Background and prior work
 
@@ -80,7 +80,8 @@ reliability of UNIX utilities*](https://dl.acm.org/doi/10.1145/96267.96279)
 Inserting random characters was effective in finding corner cases where the
 programmers forgot to properly validate the input from the user.
 
-However it wouldn't trigger bugs hiding deeper under the surface.
+However it wouldn't trigger bugs hiding deeper under the surface, such as the
+"bad!" example from the previous section.
 
 This changed around 2007 when people [started
 thinking](https://lcamtuf.coredump.cx/afl/historical_notes.txt) about how
@@ -157,6 +158,13 @@ the property-based testing tools.
 
 * First off, at some point he added an update to his post where he explicitly mentiones:
 
+> "Update: Dmitry Vyukov's Go-fuzz, which looks like it was started a month
+> after this post was written, uses the approach from the proof of concept in
+> this post of combining the sort of logic seen in AFL with a QuickCheck-like
+> framework, and has been shown to be quite effective. I believe David R.
+> MacIver is also planning to use this approach in the next version of
+> hypothesis."
+
   + Go-fuzz?
     - writing properties using go-fuzz: https://news.ycombinator.com/item?id=40876822
     - https://adalogics.com/blog/structure-aware-go-fuzzing-complex-types
@@ -180,7 +188,7 @@ the property-based testing tools.
      ones
    + https://github.com/mboehme/aflfast
 
-* When you search for coverage guided property-based testing 
+* When you search for "coverage-guided property-based testing" in the academic literature
 
 * [FuzzChick](https://dl.acm.org/doi/10.1145/3360607) (2019). Not released, lives in
   an [unmaintained
@@ -199,6 +207,7 @@ the property-based testing tools.
 * [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
   [FuzzTest](https://github.com/google/fuzztest) ("It is a first-of-its-kind
   tool that bridges the gap between fuzzing and property-based testing") (2022?)
+  - Difference to go-fuzz?
 * [honggfuzz](https://github.com/google/honggfuzz)
   - open PR to add it to cargo fuzz: https://github.com/rust-fuzz/book/pull/14
 * [Structure-aware fuzzing using libfuzzer-sys in
@@ -222,9 +231,9 @@ version, based on the original property-based testing implementation.
 
 ## Prototype implementation
 
-If we want 
+One key question we need to answer in order to be able to implement anything
+that's coverage-guided is: where do we get the coverage information from?
 
-Great, but where do we get this coverage information from? 
 
 AFL and `go-fuzz` both get it from the compiler. 
 
@@ -299,10 +308,10 @@ using the internal notion of coverage that property-based testing already has?
 ``` {.haskell include=src/QuickCheckV1.hs snippet=coverCheck}
 ```
 
-``` {.haskell include=src/QuickCheckV1.hs snippet=testC}
+``` {.haskell include=src/QuickCheckV1.hs snippet=testsC}
 ```
 
-``` {.haskell include=src/QuickCheckV1.hs snippet=testCPrime}
+``` {.haskell include=src/QuickCheckV1.hs snippet=testsCPrime}
 ```
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=classify}
@@ -313,6 +322,101 @@ The full source code is available
 ## Testing some examples with the prototype
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=bad}
+```
+
+```
+>>> testBad
+0: "n"
+1: "T"
+2: "L"
+3: "|"
+4: "X"
+5: "\""
+6: "e"
+7: "G"
+8: "R"
+9: "}"
+10: "C"
+11: "3"
+12: ">"
+13: "C"
+14: "J"
+15: "9"
+16: "="
+17: "9"
+18: "L"
+19: ")"
+20: "5"
+21: "6"
+22: "x"
+23: "#"
+24: "T"
+25: "T"
+26: "_"
+27: "@"
+28: "}"
+29: "y"
+30: "-"
+31: "s"
+32: "b"
+33: "bx"
+34: "b9"
+35: "bf"
+36: "bl"
+37: "ba"
+38: "baC"
+39: "baX"
+40: "baA"
+41: "baE"
+42: "bay"
+43: "baX"
+44: "ba6"
+45: "ba@"
+46: "bai"
+47: "ba}"
+48: "bay"
+49: "bac"
+50: "bak"
+51: "ba`"
+52: "bad"
+53: "bad8"
+54: "bade"
+55: "bad0"
+56: "badA"
+57: "badP"
+58: "badQ"
+59: "bad0"
+60: "bade"
+61: "bad)"
+62: "bado"
+63: "badE"
+64: "bad\""
+65: "bad@"
+66: "bad{"
+67: "badX"
+68: "bado"
+69: "badb"
+70: "bad~"
+71: "bada"
+72: "bad%"
+73: "bad9"
+74: "badE"
+75: "bad8"
+76: "bad{"
+77: "badS"
+78: "badn"
+79: "bad?"
+80: "badn"
+81: "badq"
+82: "bady"
+83: "badA"
+84: "bad4"
+85: "bad;"
+86: "bad9"
+87: "badU"
+88: "bad!"
+Falsifiable, after 88 tests:
+"bad!"
 ```
 
 ## Conclusion and further work
@@ -362,7 +466,11 @@ The full source code is available
 
 
 
-[^1]: Here's Dan's example in full:
+[^1]: This example is due to Dmitry Vyukov, the main author of
+    [go-fuzz](https://github.com/dvyukov/go-fuzz), but it's basically an easier
+    to understand version of the example from Dan Luu's post. For comparison,
+    here's Dan's example in full:
+
     ```
     // Checks that a number has its bottom bits set
     func some_filter(x int) bool {
@@ -396,8 +504,6 @@ The full source code is available
     	return 5
     }
     ```
-    As I hope we can agree, it's very similar to Dmitry's example, except it's a
-    bit less clear what exactly happens in the if statement.
 
 [^2]: See the appendix of the original
     [paper](https://dl.acm.org/doi/10.1145/351240.351266) that first introduced

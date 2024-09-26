@@ -1,4 +1,4 @@
-module QuickCheck
+module QuickCheckV1
   -- testing functions
   ( quickCheck    -- :: prop -> IO ()
   , verboseCheck  -- :: prop -> IO ()
@@ -42,6 +42,8 @@ module QuickCheck
   -- testable
   , Testable(..)  -- :: class
   , Property      -- :: *
+
+  , testBad
   )
  where
 
@@ -429,5 +431,10 @@ bad s = coverage 0 'b'
             | otherwise     = Nothing
 
 testBad :: IO ()
-testBad = coverCheck (verbose { maxTest = 2^7*4*2 }) bad
+testBad = coverCheck config bad
+  where
+    config = verbose
+      { maxTest = 2^7*4*2
+      , every = \n args -> show n ++ ": " ++ unlines args
+      }
 -- end snippet
