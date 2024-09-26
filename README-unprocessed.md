@@ -34,10 +34,11 @@ func sut(input []byte) {
 ```
 
 If we were to try to test this function with property-based testing, where we
-restrict the input to be of exactly length 4, then it would still take $O(2^8
-\cdot 2^8 \cdot 2^8 \cdot 2^8) = O((2^8)^4) = O(2^{32}) \approx 4B$ tries
-to trigger the bug! A more realistic test wouldn't fix the length of the input,
-which would make the probability of triggering the bug even worse.
+restrict the input to be of exactly length 4, then it would still take
+$\mathcal{O}(2^8 \cdot 2^8 \cdot 2^8 \cdot 2^8) = \mathcal{O}((2^8)^4) =
+\mathcal{O}(2^{32}) \approx 4B$ tries to trigger the bug! A more realistic test
+wouldn't fix the length of the input, which would make the probability of
+triggering the bug even worse.
 
 With coverage-guidance we keep track of inputs that resulted in increased
 coverage. So, for example, if we generate the array `[]byte{'A'}` we get
@@ -45,8 +46,8 @@ further into the nested ifs, and so we take note of that and start generating
 longer arrays that start with 'A' and see if we get even further, etc.
 
 By building on previous succeses in getting more coverage, we can effectively
-reduce the problem to only need $O(2^8 + 2^8 + 2^8 + 2^8) = O(2^8 \cdot 4) =
-O(2^{10}) = 1024$ tries. 
+reduce the problem to only need $\mathcal{O}(2^8 + 2^8 + 2^8 + 2^8) =
+\mathcal{O}(2^8 \cdot 4) = \mathcal{O}(2^{10}) = 1024$ tries. 
 
 In other words coverage-guidence turns an exponential problem into a polynomial
 problem!
@@ -319,13 +320,40 @@ using the internal notion of coverage that property-based testing already has?
 The full source code is available
 [here](https://github.com/stevana/coverage-guided-pbt).
 
-## Testing some examples with the prototype
+## Example test run using the prototype
+
+We now have all the pieces to test the example from the
+[motivation](#motivation) section. This property basically says that there's no
+string that's equal to `"bad!"`, which is obviously false.
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=bad}
 ```
 
+If we try to test this property using the unmodified first version of QuickCheck:
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=testBad}
+```
+
+We'll see spin away, but not actually find the bad string:
+
 ```
 >>> testBad
+32301
+^CInterrupted.
+```
+
+I stopped it after about 32k tries.
+
+Whereas if we use coverage-guided generation:
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=testBadPrime}
+```
+
+We find the bad string pretty quickly. I'm using verbose output here so you can
+see how it first find the `"b"`, then `"ba"`, etc:
+
+```
+>>> testBad'
 0: "n"
 1: "T"
 2: "L"
@@ -507,5 +535,5 @@ Falsifiable, after 88 tests:
 
 [^2]: See the appendix of the original
     [paper](https://dl.acm.org/doi/10.1145/351240.351266) that first introduced
-    property-based testing. It's interesting to note that this functionality is
-    older than shrinking.
+    property-based testing. It's interesting to note that the collecting
+    statistics functionality is older than shrinking.

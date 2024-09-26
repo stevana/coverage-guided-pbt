@@ -44,6 +44,7 @@ module QuickCheckV1
   , Property      -- :: *
 
   , testBad
+  , testBad'
   )
  where
 
@@ -429,12 +430,21 @@ bad s = coverage 0 'b'
     (!?) :: [a] -> Int -> Maybe a
     xs !? i | i < length xs = Just (xs !! i)
             | otherwise     = Nothing
+-- end snippet
 
+-- start snippet testBad
 testBad :: IO ()
-testBad = coverCheck config bad
+testBad = check config bad
+  where
+    config = quick { maxTest = (2^8)^4 }
+-- end snippet
+
+-- start snippet testBadPrime
+testBad' :: IO ()
+testBad' = coverCheck config bad
   where
     config = verbose
-      { maxTest = 2^7*4*2
+      { maxTest = (2^8)*4
       , every = \n args -> show n ++ ": " ++ unlines args
       }
 -- end snippet
