@@ -432,14 +432,14 @@ bad s = coverage 0 'b'
             | otherwise     = Nothing
 -- end snippet
 
--- start snippet testBad
+-- start snippet testBad1
 testBad :: IO ()
 testBad = check config bad
   where
     config = quick { maxTest = (2^8)^4 }
 -- end snippet
 
--- start snippet testBadPrime
+-- start snippet testBad2
 testBad' :: IO ()
 testBad' = coverCheck config bad
   where

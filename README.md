@@ -7,18 +7,28 @@ Almost ten years ago, back in 2015, Dan Luu wrote a
 [post](https://danluu.com/testing/) asking why coverage-guided
 property-based testing wasn't a thing.
 
-In this post I'll show how one can implement such a thing starting from
-scratch.
+In this post I'll survey the coverage-guided landscape, looking at what
+was there before Dan's post and what has happened since.
+
+The short version is: imperative languages seem to be in the forefront
+of combining coverage-guidance and property-based testing.
+
+In an effort to try to help functional programming languages catch up,
+I'll show how coverage-guidence can be added to the first version of the
+original property-based testing tool, QuickCheck, in about 35 lines of
+code.
 
 The technique is programming language agnostic and doesn't rely on any
-language-specific instrumentation of the software under test.
+language-specific instrumentation of the software under test (unlike
+previous implementations of this idea).
 
 ## Motivation
 
 Before we start, let me try to motivate why one would want to combine
 coverage-guided fuzzing and property-based testing to begin with.
 
-Consider the following example[^1]:
+Consider the following example[^1], where an error is triggered if some
+input byte array starts with the bytes `"bad!"`:
 
     func sut(input []byte) {
         if input[0] == 'b' {
@@ -38,7 +48,7 @@ still take
 $\mathcal{O}(2^8 \cdot 2^8 \cdot 2^8 \cdot 2^8) = \mathcal{O}((2^8)^4) =
 \mathcal{O}(2^{32}) \approx 4B$ tries to trigger the bug! A more
 realistic test wouldn't fix the length of the input, which would make
-the probability of triggering the bug even worse.
+the probability of triggering the bug even lower.
 
 With coverage-guidance we keep track of inputs that resulted in
 increased coverage. So, for example, if we generate the array
@@ -56,6 +66,8 @@ polynomial problem!
 
 ## Background and prior work
 
+### Before 2015
+
 Fuzzing has an interesting origin. It was a class
 [project](http://pages.cs.wisc.edu/~bart/fuzz/CS736-Projects-f1988.pdf)
 in an advanced operating systems course taught by Barton Miller at the
@@ -67,10 +79,10 @@ rained, then frequently random characters would appear in the terminal.
 The line noise wasn't the surprising thing, but rather that the extra
 characters would sometimes crash the program that they tried to invoke.
 
-Among these programs were basic utilities such as vi, mail, cc, make,
-sed, awk, sort, etc, and it was reasonable to expect that these would
-give an error message rather than crash and core dump if fed with some
-extra characters caused by the rain.
+Among these programs were basic utilities such as `vi`, `mail`, `cc`,
+`make`, `sed`, `awk`, `sort`, etc, and it was reasonable to expect that
+these would give an error message rather than crash and core dump if fed
+with some extra characters caused by the rain.
 
 So the project set out to basically recreate what the rain did, but more
 effectively, but essentially generating random noise (stream of bytes)
@@ -78,7 +90,8 @@ and feeding that to different utilities and see if they crashed.
 
 A couple of years later Barton et al published [*An empirical study of
 the reliability of UNIX
-utilities*](https://dl.acm.org/doi/10.1145/96267.96279) (1990).
+utilities*](https://dl.acm.org/doi/10.1145/96267.96279) (1990) which
+documents their findings.
 
 Inserting random characters was effective in finding corner cases where
 the programmers forgot to properly validate the input from the user.
@@ -117,54 +130,57 @@ stop at this point and go back to this point, before looking at what
 happened since with coverage-guided fuzzers.
 
 Recall that Dan was asking why this idea of coverage-guidance wasn't
-present in the property-based testing tools.
+present in property-based testing tools.
 
-- I've written about the
-  [history](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#the-history-of-property-based-testing)
-  of property-based testing and explained how it
-  [works](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#pure-property-based-testing-recap)
-  already, so I won't take up space by repeating myself here. Let's just
-  note that the [original
-  paper](https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf)
-  on property-based testing was published in 2000.
+I've written about the
+[history](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#the-history-of-property-based-testing)
+of property-based testing and explained how it
+[works](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#pure-property-based-testing-recap)
+already, so I won't take up space by repeating myself here. Let's just
+note that the [original
+paper](https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf)
+on property-based testing was published in 2000.
 
-- So when Dan wrote asking about this question property-based testing
-  would have been fifteen and AFL two years old.
+So when Dan wrote asking about this question property-based testing
+would have been fifteen and AFL two years old.
 
-- The main difference between property-based testing and fuzzing is that
-  fuzzing requires less work by the user. Simply hook up the byte
-  generator to the function that expects bytes as input and off it goes
-  looking for crashes.
+The main difference between property-based testing and fuzzing is that
+fuzzing requires less work by the user. Simply hook up the byte
+generator to the function that expects bytes as input and off it goes
+looking for crashes.
 
-  Property-based testing on the other hand can test functions that take
-  arbitrary data structures as input (not just bytes), but you have to
-  describe how to generate such inputs. Fuzzing only looks for crashes,
-  while property-based testing lets you specify arbitrary relations that
-  should hold between the input and output of the system under test.
+Property-based testing on the other hand can test functions that take
+arbitrary data structures as input (not just bytes), but you have to
+describe how to generate such inputs. Fuzzing only looks for crashes,
+while property-based testing lets you specify arbitrary relations that
+should hold between the input and output of the system under test.
 
-  For example, we can generate binary search trees and check that after
-  we insert something into an arbitrary binary search tree then it will
-  remain sorted (when we do an inorder traversal). Fuzzing can't check
-  such properties, and generating random bytes would seldom lead to
-  valid binary search trees.
+For example, we can generate binary search trees and check that after we
+insert something into an arbitrary binary search tree then it will
+remain sorted (when we do an inorder traversal). Fuzzing can't check
+such properties, and generating random bytes would seldom lead to valid
+binary search trees.
 
-  On the other hand, the coverage of property-based tests is only as
-  good as the user provided generators. Corner cases where slightly
-  modified data leads to e.g. exception handling is not explored
-  automatically, and coverage information is not used to guide the input
-  generation process.
+On the other hand, the coverage of property-based tests is only as good
+as the user provided generators. Corner cases where slightly modified
+data leads to e.g. exception handling is not explored automatically, and
+coverage information is not used to guide the input generation process.
 
-- By now we should have enough background to see that the idea of
-  combining coverage-guidance and property-based testing makes sense.
-  What if we can use user provided generators to kick start the
-  exploration, but then mutate the data and use coverage information to
-  find problems that wouldn't have been surfaced with the user provided
-  input generators alone (or recall from the example in the
-  introduction, the probability of generating the input in a single shot
-  is simply too unlikely).
+By now we should have enough background to see that the idea of
+combining coverage-guidance and property-based testing makes sense. What
+if we can use user provided generators to kick start the exploration,
+but then mutate the data and use coverage information to find problems
+that wouldn't have been surfaced with the user provided input generators
+alone (or recall from the example in the introduction, the probability
+of generating the input in a single shot is simply too unlikely).
 
-- First off, at some point he added an update to his post where he
-  explicitly mentiones:
+### After 2015
+
+Having covered what had happened before Dan's post, let's have a look at
+what has happened in the ten years since his post.
+
+First off, it's worth noting that at some point he added an update to
+his post:
 
 > "Update: Dmitry Vyukov's Go-fuzz, which looks like it was started a
 > month after this post was written, uses the approach from the proof of
@@ -173,22 +189,36 @@ present in the property-based testing tools.
 > believe David R. MacIver is also planning to use this approach in the
 > next version of hypothesis."
 
-- Go-fuzz?
+So let's start there, with Go-fuzz. At a first glance, all functions
+that are tested with Go-fuzz need to take an array of bytes as input. My
+initial thought was, how can I write properties which involve generating
+more interesting data structures? But it turns out it's
+[possible](https://news.ycombinator.com/item?id=40876822), as somebody
+pointed out in the comments of an old post of mine. Furthermore there
+are also
+[ways](https://adalogics.com/blog/structure-aware-go-fuzzing-complex-types)
+of making the fuzzer aware of more complex data structures. I haven't
+played around enough with this to be able to compare how well shrinking
+works yet though, but overall I'd say this ticks the box of being a
+property-based testing tool that is also coverage-guided.
 
-  - writing properties using go-fuzz:
-    <https://news.ycombinator.com/item?id=40876822>
-  - <https://adalogics.com/blog/structure-aware-go-fuzzing-complex-types>
+Next up Dan mentions Python's Hypothesis. I was searching through the
+documentation trying to find out how coverage-guidance works, but I
+couldn't find anything. Searching through the repository I found the
+following [release
+note](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3)
+(2018):
 
-- Hypothesis
+> "This release deprecates the coverage-guided testing functionality, as
+> it has proven brittle and does not really pull its weight.
+>
+> We intend to replace it with something more useful in the future, but
+> the feature in its current form does not seem to be worth the cost of
+> using, and whatever replaces it will likely look very different."
 
-  - Has notion of coverage:
-    <https://hypothesis.readthedocs.io/en/latest/details.html#hypothesis.event>)
-  - But coverage-guided testing was
-    [removed](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148be3446392bc3af8892d49f3cc74fbe3)
+As far as I can tell, it hasn't been reintroduced since.
 
-<!-- -->
-
-- Now let's have a look at what has happend since Dan's post.
+What else has happenend since Dan's post?
 
 - "Note: AFL hasn't been updated for a couple of years; while it should
   > still work fine, a more complex fork with a variety of improvements
@@ -280,6 +310,13 @@ I didn't know that you could get this information from a library
 provided by the GHC compiler in Haskell, until I read Shae "shapr"
 Erisson does in his
 [post](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html).
+
+- Footnote? Shae "shapr" Erisson's post [*Run property tests until
+  coverage stops
+  increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023)
+  and [trynocular](https://github.com/shapr/trynocular) library.
+  - This only uses coverage as a stopping condition, not to actually
+    drive the generation...
 
 While this certainly makes things easier, it wasn't until I read about
 Antithesis' ["sometime
@@ -457,8 +494,7 @@ The full source code is available
 ## Example test run using the prototype
 
 We now have all the pieces to test the example from the
-[motivation](#motivation) section. This property basically says that
-there's no string that's equal to `"bad!"`, which is obviously false.
+[motivation](#motivation) section:
 
 ``` haskell
 bad :: String -> Property
@@ -476,21 +512,15 @@ bad s = coverage 0 'b'
             | otherwise     = Nothing
 ```
 
-If we try to test this property using the unmodified first version of
-QuickCheck:
+This property basically says that there's no string that's equal to
+`"bad!"`, which is obviously false. If we try to test this property
+using the unmodified first version of QuickCheck:
 
 ``` haskell
 testBad :: IO ()
 testBad = check config bad
   where
     config = quick { maxTest = (2^8)^4 }
-testBad' :: IO ()
-testBad' = coverCheck config bad
-  where
-    config = verbose
-      { maxTest = (2^8)*4
-      , every = \n args -> show n ++ ": " ++ unlines args
-      }
 ```
 
 We'll see spin away, but not actually find the bad string:
@@ -499,7 +529,8 @@ We'll see spin away, but not actually find the bad string:
     32301
     ^CInterrupted.
 
-I stopped it after about 32k tries.
+I stopped it after about 32k tries, in theory we'd need more than 4
+billion attempts to find the bad string using this approach.
 
 Whereas if we use coverage-guided generation:
 
@@ -611,6 +642,8 @@ you can see how it first find the `"b"`, then `"ba"`, etc:
 
 ## Conclusion and further work
 
+- Exponential -\> polynomial
+
 - Makes more sense for stateful systems than pure functions? Or atleast
   properties that expect a sequence of inputs?
 
@@ -653,12 +686,6 @@ you can see how it first find the `"b"`, then `"ba"`, etc:
 - <https://carstein.github.io/fuzzing/2020/05/21/writing-simple-fuzzer-4.html>
 - [How Antithesis finds bugs (with help from the Super Mario
   Bros)](https://antithesis.com/blog/sdtalk/)
-- Swarm testing
-- Shae "shapr" Erisson's post [*Run property tests until coverage stops
-  increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023)
-  and [trynocular](https://github.com/shapr/trynocular) library.
-  - This only uses coverage as a stopping condition, not to actually
-    drive the generation...
 
 [^1]: This example is due to Dmitry Vyukov, the main author of
     [go-fuzz](https://github.com/dvyukov/go-fuzz), but it's basically an
