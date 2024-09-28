@@ -9,7 +9,7 @@ testing wasn't a thing.
 In this post I'll survey the coverage-guided landscape, looking at what was
 there before Dan's post and what has happened since.
 
-The short version is: imperative languages seem to be in the forefront of
+The short version is: today imperative languages seem to be in the forefront of
 combining coverage-guidance and property-based testing.
 
 In an effort to try to help functional programming languages catch up, I'll
@@ -210,24 +210,37 @@ note](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148b
 
 As far as I can tell, it hasn't been reintroduced since.
 
+However it's possible to hook Hypothesis up to [use external
+fuzzers](https://hypothesis.readthedocs.io/en/latest/details.html#use-with-external-fuzzers).
+
+XXX: how does this work? like in Crowbar? What are the disadvantages? Why isn't
+this the default?
+
 What else has happenend since Dan's post?
 
-* > "Note: AFL hasn't been updated for a couple of years; while it should still
-  > work fine, a more complex fork with a variety of improvements and additional
-  > features, known as AFL++, is available from other members of the community
-  > and is worth checking out." -- https://lcamtuf.coredump.cx/afl/
+One of the first things I noticed is that AFL is no longer
+[maintained](https://lcamtuf.coredump.cx/afl/):
 
-   + [AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf)
-     (2020) incorporates all of
-     [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
-     schedules](https://aflplus.plus/docs/power_schedules/) and adds some news
-     ones
-   + https://github.com/mboehme/aflfast
+> "Note: AFL hasn't been updated for a couple of years; while it should still
+> work fine, a more complex fork with a variety of improvements and additional
+> features, known as AFL++, is available from other members of the community
+> and is worth checking out." 
+
+[AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf) (2020) 
+  - incorporates all of
+    [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
+    schedules](https://aflplus.plus/docs/power_schedules/) and adds some new
+    ones
+  - explain what power schedules are?
+  - https://github.com/mboehme/aflfast
 
 * When you search for "coverage-guided property-based testing" in the academic literature
 
-* [FuzzChick](https://dl.acm.org/doi/10.1145/3360607) (2019). Not released, lives in
-  an [unmaintained
+* [*Coverage guided, property based
+  testing*](https://dl.acm.org/doi/10.1145/3360607) by Leonidas Lampropoulos,
+  Michael Hicks, Benjamin C. Pierce (2019)
+* FuzzChick Coq/Rocq library
+* Not released, lives in an [unmaintained
   branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
   that [doesn't compile](https://github.com/QuickChick/QuickChick/issues/277)?
   - coverage info is [same as in AFL](https://youtu.be/RR6c_fiMfJQ?t=2226)
@@ -270,6 +283,7 @@ version, based on the original property-based testing implementation.
 One key question we need to answer in order to be able to implement anything
 that's coverage-guided is: where do we get the coverage information from?
 
+### Getting the coverage information
 
 AFL and `go-fuzz` both get it from the compiler. 
 
@@ -314,21 +328,24 @@ very first version[^2]!
 So the question is: can we implement coverage-guided property-based testing
 using the internal notion of coverage that property-based testing already has?
 
+### The first version of QuickCheck
 
 * QuickCheck as defined in the appendix of the original
   [paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000)
-  - Extended monadic properties
-
-* Edsko de Vries'
-  [Mini-QuickCheck](https://www.well-typed.com/blog/2019/05/integrated-shrinking/)
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Gen}
 ```
+
+Footnote: We'll not talk about the coarbitrary, which is used to generate
+functions. 
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=rand}
 ```
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=sized}
+```
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=Arbitrary}
 ```
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Property}
@@ -346,17 +363,27 @@ using the internal notion of coverage that property-based testing already has?
 ``` {.haskell include=src/QuickCheckV1.hs snippet=evaluate}
 ```
 
+``` {.haskell include=src/QuickCheckV1.hs snippet=classify}
+```
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=Config}
+```
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=quickCheck}
+```
+
+### The extension to add coverage-guidance
+
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=coverCheck}
 ```
 
-``` {.haskell include=src/QuickCheckV1.hs snippet=testsC}
+``` {.haskell include=src/QuickCheckV1.hs snippet=testsC1}
 ```
 
-``` {.haskell include=src/QuickCheckV1.hs snippet=testsCPrime}
+``` {.haskell include=src/QuickCheckV1.hs snippet=testsC2}
 ```
 
-``` {.haskell include=src/QuickCheckV1.hs snippet=classify}
-```
 The full source code is available
 [here](https://github.com/stevana/coverage-guided-pbt).
 

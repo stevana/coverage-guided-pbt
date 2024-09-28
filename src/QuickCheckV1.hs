@@ -151,28 +151,41 @@ four m = liftM4 (,,,) m m m m
 --------------------------------------------------------------------
 -- Arbitrary
 
+-- start snippet Arbitrary
 class Arbitrary a where
-  arbitrary   :: Gen a
+  arbitrary :: Gen a
+
+-- end snippet
   coarbitrary :: a -> Gen b -> Gen b
 
 instance Arbitrary () where
-  arbitrary     = return ()
+  arbitrary = return ()
   coarbitrary _ = variant 0
 
+-- start snippet Arbitrary
 instance Arbitrary Bool where
-  arbitrary     = elements [True, False]
+  arbitrary = elements [True, False]
+
+-- end snippet
   coarbitrary b = if b then variant 0 else variant 1
 
+-- start snippet Arbitrary
 instance Arbitrary Char where
-  arbitrary     = choose (32,126) >>= \n -> return (chr n)
+  -- Avoids generating control characters.
+  arbitrary = choose (32,126) >>= \n -> return (chr n)
+
+-- end snippet
   coarbitrary n = variant (ord n)
 
+-- start snippet Arbitrary
 instance Arbitrary Int where
-  arbitrary     = sized $ \n -> choose (-n,n)
+  arbitrary = sized $ \n -> choose (-n,n)
+
+-- end snippet
   coarbitrary n = variant (if n >= 0 then 2*n else 2*(-n) + 1)
 
 instance Arbitrary Integer where
-  arbitrary     = sized $ \n -> choose (-toInteger n, toInteger n)
+  arbitrary = sized $ \n -> choose (-toInteger n, toInteger n)
   coarbitrary n = variant (fromInteger (if n >= 0 then 2*n else 2*(-n) + 1))
 
 instance Arbitrary Float where
@@ -200,13 +213,16 @@ instance (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d)
   coarbitrary (a, b, c, d) =
     coarbitrary a . coarbitrary b . coarbitrary c . coarbitrary d
 
+-- start snippet Arbitrary
 instance Arbitrary a => Arbitrary [a] where
-  arbitrary          = sized (\n -> choose (0,n) >>= vector)
+  arbitrary = sized (\n -> choose (0,n) >>= vector)
+
+-- end snippet
   coarbitrary []     = variant 0
   coarbitrary (a:as) = coarbitrary a . variant 1 . coarbitrary as
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (a -> b) where
-  arbitrary         = promote (`coarbitrary` arbitrary)
+  arbitrary = promote (`coarbitrary` arbitrary)
   coarbitrary f gen = arbitrary >>= ((`coarbitrary` gen) . f)
 
 --------------------------------------------------------------------
@@ -287,6 +303,7 @@ collect v = label (show v)
 --------------------------------------------------------------------
 -- Testing
 
+-- start snippet Config
 data Config = Config
   { maxTest :: Int
   , maxFail :: Int
@@ -306,7 +323,9 @@ verbose :: Config
 verbose = quick
   { every = \n args -> show n ++ ":\n" ++ unlines args
   }
+-- end snippet
 
+-- start snippet quickCheck
 test, quickCheck, verboseCheck :: Testable a => a -> IO ()
 test         = check quick
 quickCheck   = check quick
@@ -337,6 +356,7 @@ tests config gen rnd0 ntest nfail stamps
      where
       result      = generate (size config ntest) rnd2 gen
       (rnd1,rnd2) = split rnd0
+-- end snippet
 
 done :: String -> Int -> [[String]] -> IO ()
 done mesg ntest stamps =
@@ -366,7 +386,7 @@ done mesg ntest stamps =
 --------------------------------------------------------------------
 -- the end.
 
--- start snippet testsCPrime
+-- start snippet testsC2
 testsC' :: Show a => Config -> Gen a -> ([a] -> Property) -> StdGen -> Int -> Int -> [[String]] -> IO ()
 testsC' config gen prop = tests config genResult
   where
@@ -381,7 +401,7 @@ coverCheck config prop = do
   testsC config arbitrary prop [] 0 rnd 0 0 []
 -- end snippet
 
--- start snippet testsC
+-- start snippet testsC1
 testsC :: Show a => Config -> Gen a -> ([a] -> Property) -> [a] -> Int
        -> StdGen -> Int -> Int -> [[String]] -> IO ()
 testsC config gen prop xs cov rnd0 ntest nfail stamps

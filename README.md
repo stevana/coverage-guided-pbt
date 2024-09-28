@@ -10,8 +10,8 @@ property-based testing wasn't a thing.
 In this post I'll survey the coverage-guided landscape, looking at what
 was there before Dan's post and what has happened since.
 
-The short version is: imperative languages seem to be in the forefront
-of combining coverage-guidance and property-based testing.
+The short version is: today imperative languages seem to be in the
+forefront of combining coverage-guidance and property-based testing.
 
 In an effort to try to help functional programming languages catch up,
 I'll show how coverage-guidence can be added to the first version of the
@@ -218,26 +218,44 @@ note](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148b
 
 As far as I can tell, it hasn't been reintroduced since.
 
+However it's possible to hook Hypothesis up to [use external
+fuzzers](https://hypothesis.readthedocs.io/en/latest/details.html#use-with-external-fuzzers).
+
+XXX: how does this work? like in Crowbar? What are the disadvantages?
+Why isn't this the default?
+
 What else has happenend since Dan's post?
 
-- "Note: AFL hasn't been updated for a couple of years; while it should
-  > still work fine, a more complex fork with a variety of improvements
-  > and additional features, known as AFL++, is available from other
-  > members of the community and is worth checking out." --
-  > <https://lcamtuf.coredump.cx/afl/>
+One of the first things I noticed is that AFL is no longer
+[maintained](https://lcamtuf.coredump.cx/afl/):
 
-  - [AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf) (2020)
-    incorporates all of
-    [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
-    schedules](https://aflplus.plus/docs/power_schedules/) and adds some
-    news ones
-  - <https://github.com/mboehme/aflfast>
+> "Note: AFL hasn't been updated for a couple of years; while it should
+> still work fine, a more complex fork with a variety of improvements
+> and additional features, known as AFL++, is available from other
+> members of the community and is worth checking out."
+
+[AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf)
+(2020)
+
+- incorporates all of
+  [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
+  schedules](https://aflplus.plus/docs/power_schedules/) and adds some
+  new ones
+- explain what power schedules are?
+- <https://github.com/mboehme/aflfast>
+
+<!-- -->
 
 - When you search for "coverage-guided property-based testing" in the
   academic literature
 
-- [FuzzChick](https://dl.acm.org/doi/10.1145/3360607) (2019). Not
-  released, lives in an [unmaintained
+- [*Coverage guided, property based
+  testing*](https://dl.acm.org/doi/10.1145/3360607) by Leonidas
+  Lampropoulos, Michael Hicks, Benjamin C. Pierce (2019)
+
+- FuzzChick Coq/Rocq library
+
+- Not released, lives in an [unmaintained
   branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
   that [doesn't
   compile](https://github.com/QuickChick/QuickChick/issues/277)?
@@ -296,6 +314,8 @@ One key question we need to answer in order to be able to implement
 anything that's coverage-guided is: where do we get the coverage
 information from?
 
+### Getting the coverage information
+
 AFL and `go-fuzz` both get it from the compiler.
 
 AFL injects code into every [basic
@@ -346,13 +366,10 @@ So the question is: can we implement coverage-guided property-based
 testing using the internal notion of coverage that property-based
 testing already has?
 
+### The first version of QuickCheck
+
 - QuickCheck as defined in the appendix of the original
   [paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000)
-
-  - Extended monadic properties
-
-- Edsko de Vries'
-  [Mini-QuickCheck](https://www.well-typed.com/blog/2019/05/integrated-shrinking/)
 
 ``` haskell
 newtype Gen a = Gen (Int -> StdGen -> a)
@@ -363,6 +380,9 @@ generate n rnd (Gen m) = m size rnd'
   (size, rnd') = randomR (0, n) rnd
 ```
 
+Footnote: We'll not talk about the coarbitrary, which is used to
+generate functions.
+
 ``` haskell
 rand :: Gen StdGen
 rand = Gen (\_n r -> r)
@@ -371,6 +391,25 @@ rand = Gen (\_n r -> r)
 ``` haskell
 sized :: (Int -> Gen a) -> Gen a
 sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
+```
+
+``` haskell
+class Arbitrary a where
+  arbitrary :: Gen a
+
+instance Arbitrary Bool where
+  arbitrary = elements [True, False]
+
+instance Arbitrary Char where
+  -- Avoids generating control characters.
+  arbitrary = choose (32,126) >>= \n -> return (chr n)
+
+instance Arbitrary Int where
+  arbitrary = sized $ \n -> choose (-n,n)
+
+instance Arbitrary a => Arbitrary [a] where
+  arbitrary = sized (\n -> choose (0,n) >>= vector)
+
 ```
 
 ``` haskell
@@ -425,6 +464,74 @@ evaluate a = gen where Prop gen = property a
 ```
 
 ``` haskell
+label :: Testable a => String -> a -> Property
+label s a = Prop (add `fmap` evaluate a)
+ where
+  add res = res{ stamp = s : stamp res }
+
+classify :: Testable a => Bool -> String -> a -> Property
+classify True  name = label name
+classify False _    = property
+```
+
+``` haskell
+data Config = Config
+  { maxTest :: Int
+  , maxFail :: Int
+  , size    :: Int -> Int
+  , every   :: Int -> [String] -> String
+  }
+
+quick :: Config
+quick = Config
+  { maxTest = 100
+  , maxFail = 1000
+  , size    = (+ 3) . (`div` 2)
+  , every   = \n args -> let s = show n in s ++ [ '\b' | _ <- s ]
+  }
+
+verbose :: Config
+verbose = quick
+  { every = \n args -> show n ++ ":\n" ++ unlines args
+  }
+```
+
+``` haskell
+test, quickCheck, verboseCheck :: Testable a => a -> IO ()
+test         = check quick
+quickCheck   = check quick
+verboseCheck = check verbose
+
+check :: Testable a => Config -> a -> IO ()
+check config a =
+  do rnd <- newStdGen
+     tests config (evaluate a) rnd 0 0 []
+
+tests :: Config -> Gen Result -> StdGen -> Int -> Int -> [[String]] -> IO ()
+tests config gen rnd0 ntest nfail stamps
+  | ntest == maxTest config = do done "OK, passed" ntest stamps
+  | nfail == maxFail config = do done "Arguments exhausted after" ntest stamps
+  | otherwise               =
+      do putStr (every config ntest (arguments result))
+         case ok result of
+           Nothing    ->
+             tests config gen rnd1 ntest (nfail+1) stamps
+           Just True  ->
+             tests config gen rnd1 (ntest+1) nfail (stamp result:stamps)
+           Just False ->
+             putStr ( "Falsifiable, after "
+                   ++ show ntest
+                   ++ " tests:\n"
+                   ++ unlines (arguments result)
+                    )
+     where
+      result      = generate (size config ntest) rnd2 gen
+      (rnd1,rnd2) = split rnd0
+```
+
+### The extension to add coverage-guidance
+
+``` haskell
 coverCheck :: (Arbitrary a, Show a) => Config -> ([a] -> Property)  -> IO ()
 coverCheck config prop = do
   rnd <- newStdGen
@@ -432,11 +539,6 @@ coverCheck config prop = do
 ```
 
 ``` haskell
-testsC' :: Show a => Config -> Gen a -> ([a] -> Property) -> StdGen -> Int -> Int -> [[String]] -> IO ()
-testsC' config gen prop = tests config genResult
-  where
-    Prop genResult = forAll (genList gen) prop
-    genList gen = sized $ \len -> replicateM len gen
 testsC :: Show a => Config -> Gen a -> ([a] -> Property) -> [a] -> Int
        -> StdGen -> Int -> Int -> [[String]] -> IO ()
 testsC config gen prop xs cov rnd0 ntest nfail stamps
@@ -475,17 +577,6 @@ testsC' config gen prop = tests config genResult
   where
     Prop genResult = forAll (genList gen) prop
     genList gen = sized $ \len -> replicateM len gen
-```
-
-``` haskell
-label :: Testable a => String -> a -> Property
-label s a = Prop (add `fmap` evaluate a)
- where
-  add res = res{ stamp = s : stamp res }
-
-classify :: Testable a => Bool -> String -> a -> Property
-classify True  name = label name
-classify False _    = property
 ```
 
 The full source code is available
