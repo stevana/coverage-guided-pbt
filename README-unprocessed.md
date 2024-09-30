@@ -113,15 +113,10 @@ To give you an idea of how powerful this idea is, check out the list of
 [bugs](https://lcamtuf.coredump.cx/afl/#bugs) that it found and this post
 about how it manages to figure out the [jpeg
 format](https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html)
-on its own.
-
-For more details about how it works, see the [AFL
-"whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt) and its
-[mutation
-heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html).
+on its own[^2].
 
 Since AFL is the tool that Dan explicitly mentions in his post, let's stop at
-this point and go back to this point, before looking at what happened since
+this point and go back to his point, before looking at what happened since
 with coverage-guided fuzzers.
 
 Recall that Dan was asking why this idea of coverage-guidance wasn't present in
@@ -164,9 +159,9 @@ By now we should have enough background to see that the idea of combining
 coverage-guidance and property-based testing makes sense. What if we can use
 user provided generators to kick start the exploration, but then mutate the
 data and use coverage information to find problems that wouldn't have been
-surfaced with the user provided input generators alone (or recall from the
+surfaced with the user provided input generators alone, or recall from the
 example in the introduction, the probability of generating the input in a
-single shot is simply too unlikely).
+single shot is simply too unlikely.
 
 ### After 2015
 
@@ -323,7 +318,7 @@ machinary for gathering run-time statistics of the generated data!
 
 This machinary is [crucial](https://www.youtube.com/watch?v=NcJOiQlzlXQ) for
 writing good tests and has been part of the QuickCheck implementation since the
-very first version[^2]!
+very first version[^3]!
 
 So the question is: can we implement coverage-guided property-based testing
 using the internal notion of coverage that property-based testing already has?
@@ -374,15 +369,27 @@ functions.
 
 ### The extension to add coverage-guidance
 
+Okey, so the above is the first version of the original property-based testing
+tool, QuickCheck. Now let's add coverage-guidence to it!
+
+The function that checks a property with coverage-guidance slight different
+from `quickCheck`[^4]:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=coverCheck}
 ```
 
+In particular notice that instead of `Testable a` we use an explicit predicate
+on a list of `a`, `[a] -> Property`. The reason for using a list in the
+predicate is so that we can iteratively make progress, using the coverage
+information. We see this more clearly if we look at the coverage-guided
+analogue of the `tests` function, in particular the `xs` parameter:
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=testsC1}
 ```
 
-``` {.haskell include=src/QuickCheckV1.hs snippet=testsC2}
-```
+The other important difference is the `cov`erage parameter, which keeps track
+of how many things have been `classify`ed (the `stamps` parameter). Notice how
+we only add the newly generated input, `x`, if the `cov`erage increases.
 
 The full source code is available
 [here](https://github.com/stevana/coverage-guided-pbt).
@@ -598,7 +605,18 @@ Falsifiable, after 88 tests:
     }
     ```
 
-[^2]: See the appendix of the original
+[^2]: For more details about how it works, see the [AFL
+    "whitepaper"](https://lcamtuf.coredump.cx/afl/technical_details.txt) and
+    its [mutation
+    heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html).
+
+[^3]: See the appendix of the original
     [paper](https://dl.acm.org/doi/10.1145/351240.351266) that first introduced
     property-based testing. It's interesting to note that the collecting
     statistics functionality is older than shrinking.
+
+[^4]: It might be interesting to note that we can implement this signature
+    using the original combinators:
+    ``` {.haskell include=src/QuickCheckV1.hs snippet=testsC2}
+    ```
+

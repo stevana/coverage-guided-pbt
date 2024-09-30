@@ -387,7 +387,8 @@ done mesg ntest stamps =
 -- the end.
 
 -- start snippet testsC2
-testsC' :: Show a => Config -> Gen a -> ([a] -> Property) -> StdGen -> Int -> Int -> [[String]] -> IO ()
+testsC' :: Show a => Config -> Gen a -> ([a] -> Property)
+        -> StdGen -> Int -> Int -> [[String]] -> IO ()
 testsC' config gen prop = tests config genResult
   where
     Prop genResult = forAll (genList gen) prop
