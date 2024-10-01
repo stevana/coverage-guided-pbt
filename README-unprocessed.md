@@ -208,8 +208,16 @@ As far as I can tell, it hasn't been reintroduced since.
 However it's possible to hook Hypothesis up to [use external
 fuzzers](https://hypothesis.readthedocs.io/en/latest/details.html#use-with-external-fuzzers).
 
-XXX: how does this work? like in Crowbar? What are the disadvantages? Why isn't
-this the default?
+Hypothesis already uses random bytes as basis for its generators, unlike
+QuickCheck which uses an integer seed, so I suppose that the external fuzzers
+essentially fuzz the random input bytes that in turn are used to generate more
+structured input. 
+
+Traditional fuzzers are usually designed to target a single binary, where as
+the test suite which uses property-based testing typically has many properties.
+The [HypoFuzz](https://hypofuzz.com/docs/features.html#fuzzer-details) tool
+works around this mismatch by scheduling fuzzing time among the many Hypothesis
+properties in your test suite.
 
 What else has happenend since Dan's post?
 
@@ -266,9 +274,9 @@ One of the first things I noticed is that AFL is no longer
      case statements, multi-way ifs, and each branch of if-then-else
      expressions
 
-Imperative languages such as C++, Go, Rust, and Java seem ahead of functional
-languages when it comes to combining coverage-guided fuzzing and property-based
-testing.
+Imperative languages such as Go, Python, C++, Rust, and Java seem ahead of
+functional languages when it comes to combining coverage-guided fuzzing and
+property-based testing.
 
 Let's try to change that by implementing a small functional programming
 version, based on the original property-based testing implementation.
@@ -312,27 +320,33 @@ annotate every single line, expression or branch, we can annotate *interesting*
 points in our program.
 
 The final piece of the puzzle, and I think this is the only original idea that
-this post adds, is that property-based testing already has functionality for
+this post adds[^3], is that property-based testing already has functionality for
 implementing "sometimes assertions": the `label`, `classify` and `collect`
 machinary for gathering run-time statistics of the generated data!
 
 This machinary is [crucial](https://www.youtube.com/watch?v=NcJOiQlzlXQ) for
 writing good tests and has been part of the QuickCheck implementation since the
-very first version[^3]!
+very first version[^4]!
 
 So the question is: can we implement coverage-guided property-based testing
 using the internal notion of coverage that property-based testing already has?
 
 ### The first version of QuickCheck
 
-* QuickCheck as defined in the appendix of the original
-  [paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000)
+For the sake of self-containment, let's reproduce the the essential parts of
+QuickCheck as defined in the appendix of the original
+[paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000).
+
+#### Generating input data
+
+Let's start with the generator[^5]:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Gen}
 ```
 
-Footnote: We'll not talk about the coarbitrary, which is used to generate
-functions. 
+So a `Gen a` is basically a function from a size and a pseudo-random number
+generator (PRNG) into `a`. The PRNG and size can be accessed using the
+following two functions:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=rand}
 ```
@@ -340,26 +354,62 @@ functions.
 ``` {.haskell include=src/QuickCheckV1.hs snippet=sized}
 ```
 
+Using these together with the `Functor`, `Applicative` and `Monad`
+instances of `Gen` we can derive other useful combinators for generating
+data:
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=derivedCombinators}
+```
+
+Instead of defining generators directly for different datatypes,
+QuickCheck first wraps generators in a type class called
+`Arbitrary`[^6]:
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Arbitrary}
 ```
+
+#### Specifying properties
+
+Next up, let's look at how properties are expressed. The `Property` type
+is a wrapper around `Gen Result`:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Property}
 ```
 
+Where `Result` is defined as follows:
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Result}
 ```
+
+The idea being that `ok :: Maybe Bool` is `Nothing` if the input gets
+discarded and otherwise the boolean indicates whether the property
+passed or not. The `stamp` field is used to collect statistics about the
+generated test cases, while `arguments` contains all the generated
+inputs (or arguments) to the property.
+
+In order to allow the user to write properties of variying arity another
+type class is introduced:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Testable}
 ```
 
+The key ingredient in the function instance of `Testable` is `forAll`:
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=forAll}
 ```
+
+Which in turn depends on:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=evaluate}
 ```
 
+#### Collecting statistics
+
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=classify}
 ```
+
+#### Running the tests
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Config}
 ```
@@ -373,7 +423,7 @@ Okey, so the above is the first version of the original property-based testing
 tool, QuickCheck. Now let's add coverage-guidence to it!
 
 The function that checks a property with coverage-guidance slight different
-from `quickCheck`[^4]:
+from `quickCheck`[^7]:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=coverCheck}
 ```
@@ -391,10 +441,9 @@ The other important difference is the `cov`erage parameter, which keeps track
 of how many things have been `classify`ed (the `stamps` parameter). Notice how
 we only add the newly generated input, `x`, if the `cov`erage increases.
 
-The full source code is available
-[here](https://github.com/stevana/coverage-guided-pbt).
-
 ## Example test run using the prototype
+
+XXX: add simple example using classify without coverage-guidence?
 
 We now have all the pieces to test the example from the
 [motivation](#motivation) section:
@@ -523,6 +572,9 @@ Falsifiable, after 88 tests:
 "bad!"
 ```
 
+The full source code is available
+[here](https://github.com/stevana/coverage-guided-pbt).
+
 ## Conclusion and further work
 
 * Exponential -> polynomial
@@ -610,12 +662,26 @@ Falsifiable, after 88 tests:
     its [mutation
     heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html).
 
-[^3]: See the appendix of the original
+[^3]: As I was writing up, I stumbled across the paper [*Ijon: Exploring Deep
+    State Spaces via Fuzzing*](https://ieeexplore.ieee.org/document/9152719)
+    (2020) which lets the user to add custom coverage annotations. HypoFuzz
+    also has this
+    [functionality](https://hypofuzz.com/docs/configuration.html#custom-coverage-events).
+
+[^4]: See the appendix of the original
     [paper](https://dl.acm.org/doi/10.1145/351240.351266) that first introduced
     property-based testing. It's interesting to note that the collecting
     statistics functionality is older than shrinking.
 
-[^4]: It might be interesting to note that we can implement this signature
+[^5]: We'll not talk about the `coarbitrary` method of the `Arbitrary` type
+    class, which is used to generate functions, in this post. 
+
+[^6]: The reason for wrapping `Gen` in the `Arbitrary` type class is so
+    that generators don't have to be passed explicitly. Not everyone
+    agrees that this is a good idea, as type class instances cannot be
+    managed by the module system.
+
+[^7]: It might be interesting to note that we can implement this signature
     using the original combinators:
     ``` {.haskell include=src/QuickCheckV1.hs snippet=testsC2}
     ```

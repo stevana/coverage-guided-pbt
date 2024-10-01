@@ -116,6 +116,7 @@ instance Monad Gen where
 
 -- derived
 
+-- start snippet derivedCombinators
 choose :: Random a => (a, a) -> Gen a
 choose bounds = (fst . randomR bounds) `fmap` rand
 
@@ -124,7 +125,8 @@ elements xs = (xs !!) `fmap` choose (0, length xs - 1)
 
 vector :: Arbitrary a => Int -> Gen [a]
 vector n = sequence [ arbitrary | _i <- [1..n] ]
-
+-- end snippet
+--
 oneof :: [Gen a] -> Gen a
 oneof gens = elements gens >>= id
 
