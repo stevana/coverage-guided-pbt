@@ -390,15 +390,13 @@ generate n rnd (Gen m) = m size rnd'
 ```
 
 So a `Gen a` is basically a function from a size and a pseudo-random
-number generator (PRNG) into `a`. The PRNG and size can be accessed
-using the following two functions:
+number generator into `a`. The pseudo-random number generator and size
+can be accessed using the following two functions:
 
 ``` haskell
 rand :: Gen StdGen
 rand = Gen (\_n r -> r)
-```
 
-``` haskell
 sized :: (Int -> Gen a) -> Gen a
 sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
 ```
@@ -642,9 +640,41 @@ track of how many things have been `classify`ed (the `stamps`
 parameter). Notice how we only add the newly generated input, `x`, if
 the `cov`erage increases.
 
-## Example test run using the prototype
+## Example test runs using the prototype
 
-XXX: add simple example using classify without coverage-guidence?
+``` haskell
+insert :: Ord a => a -> [a] -> [a]
+insert x [] = [x]
+insert x (y : xs) | x <= y    = x : y : xs
+                  | otherwise = y : insert x xs
+```
+
+``` haskell
+prop_insert :: Int -> [Int] -> Property
+prop_insert x xs = isSorted xs ==> isSorted (insert x xs)
+
+isSorted :: Ord a => [a] -> Bool
+isSorted xs = sort xs == xs
+```
+
+    >>> quickCheck prop_insert
+    OK, passed 100 tests.
+
+``` haskell
+prop_insert' :: Int -> [Int] -> Property
+prop_insert' x xs = isSorted xs ==>
+  classify (null xs) "empty" $
+  classify (length xs == 1) "singleton" $
+  classify (length xs > 1 && length xs <= 3) "short" $
+  classify (length xs > 3) "longer" $
+    isSorted (insert x xs)
+```
+
+    >>> quickCheck prop_insert'
+    OK, passed 100 tests.
+    54% empty.
+    27% singleton.
+    19% short.
 
 We now have all the pieces to test the example from the
 [motivation](#motivation) section:

@@ -345,13 +345,10 @@ Let's start with the generator[^5]:
 ```
 
 So a `Gen a` is basically a function from a size and a pseudo-random number
-generator (PRNG) into `a`. The PRNG and size can be accessed using the
-following two functions:
+generator into `a`. The pseudo-random number generator and size can be
+accessed using the following two functions:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=rand}
-```
-
-``` {.haskell include=src/QuickCheckV1.hs snippet=sized}
 ```
 
 Using these together with the `Functor`, `Applicative` and `Monad`
@@ -441,9 +438,29 @@ The other important difference is the `cov`erage parameter, which keeps track
 of how many things have been `classify`ed (the `stamps` parameter). Notice how
 we only add the newly generated input, `x`, if the `cov`erage increases.
 
-## Example test run using the prototype
+## Example test runs using the prototype
 
-XXX: add simple example using classify without coverage-guidence?
+``` {.haskell include=src/QuickCheckV1.hs snippet=insert}
+```
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=prop_insert1}
+```
+
+```
+>>> quickCheck prop_insert
+OK, passed 100 tests.
+```
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=prop_insert2}
+```
+
+```
+>>> quickCheck prop_insert'
+OK, passed 100 tests.
+54% empty.
+27% singleton.
+19% short.
+```
 
 We now have all the pieces to test the example from the
 [motivation](#motivation) section:

@@ -45,6 +45,8 @@ module QuickCheckV1
 
   , testBad
   , testBad'
+  , prop_insert
+  , prop_insert'
   )
  where
 
@@ -67,7 +69,10 @@ infix  1 `classify`
 newtype Gen a = Gen (Int -> StdGen -> a)
 -- end snippet
 
--- start snippet sized
+-- start snippet rand
+rand :: Gen StdGen
+rand = Gen (\_n r -> r)
+
 sized :: (Int -> Gen a) -> Gen a
 sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
 -- end snippet
@@ -75,10 +80,6 @@ sized fgen = Gen (\n r -> let Gen m = fgen n in m n r)
 resize :: Int -> Gen a -> Gen a
 resize n (Gen m) = Gen (\_ r -> m n r)
 
--- start snippet rand
-rand :: Gen StdGen
-rand = Gen (\_n r -> r)
--- end snippet
 
 promote :: (a -> Gen b) -> Gen (a -> b)
 promote f = Gen (\n r -> \a -> let Gen m = f a in m n r)
@@ -281,9 +282,11 @@ forAll gen body = Prop $
   argument a res = res{ arguments = show a : arguments res }
 -- end snippet
 
+-- start snippet assuming
 (==>) :: Testable a => Bool -> a -> Property
 True  ==> a = property a
 False ==> a = property ()
+-- end snippet
 
 -- start snippet classify
 label :: Testable a => String -> a -> Property
@@ -470,4 +473,31 @@ testBad' = coverCheck config bad
       { maxTest = (2^8)*4
       , every = \n args -> show n ++ ": " ++ unlines args
       }
+-- end snippet
+
+------------------------------------------------------------------------
+
+-- start snippet insert
+insert :: Ord a => a -> [a] -> [a]
+insert x [] = [x]
+insert x (y : xs) | x <= y    = x : y : xs
+                  | otherwise = y : insert x xs
+-- end snippet
+
+-- start snippet prop_insert1
+prop_insert :: Int -> [Int] -> Property
+prop_insert x xs = isSorted xs ==> isSorted (insert x xs)
+
+isSorted :: Ord a => [a] -> Bool
+isSorted xs = sort xs == xs
+-- end snippet
+
+-- start snippet prop_insert2
+prop_insert' :: Int -> [Int] -> Property
+prop_insert' x xs = isSorted xs ==>
+  classify (null xs) "empty" $
+  classify (length xs == 1) "singleton" $
+  classify (length xs > 1 && length xs <= 3) "short" $
+  classify (length xs > 3) "longer" $
+    isSorted (insert x xs)
 -- end snippet
