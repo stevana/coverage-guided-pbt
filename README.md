@@ -510,6 +510,18 @@ evaluate :: Testable a => a -> Gen Result
 evaluate a = gen where Prop gen = property a
 ```
 
+One last construct for writing properties that we need is the ability to
+add assumptions or pre-conditions about the input:
+
+``` haskell
+(==>) :: Testable a => Bool -> a -> Property
+True  ==> a = property a
+False ==> a = property ()
+```
+
+Notice how if the input doesn't pass this test, then it will be
+discarded.
+
 #### Collecting statistics
 
 ``` haskell
@@ -642,12 +654,20 @@ the `cov`erage increases.
 
 ## Example test runs using the prototype
 
+### Traditional use of coverage
+
+Let's start by having a look at how one would typically write a property
+using vanilla `quickCheck`. Consider `insert`ing into an already sorted
+list:
+
 ``` haskell
 insert :: Ord a => a -> [a] -> [a]
 insert x [] = [x]
 insert x (y : xs) | x <= y    = x : y : xs
                   | otherwise = y : insert x xs
 ```
+
+If we do so, then we resulting list should remain sorted:
 
 ``` haskell
 prop_insert :: Int -> [Int] -> Property
@@ -657,8 +677,13 @@ isSorted :: Ord a => [a] -> Bool
 isSorted xs = sort xs == xs
 ```
 
+This test passes:
+
     >>> quickCheck prop_insert
     OK, passed 100 tests.
+
+What do the test cases that are generated look like? This is where
+`classify` comes in:
 
 ``` haskell
 prop_insert' :: Int -> [Int] -> Property
@@ -670,11 +695,21 @@ prop_insert' x xs = isSorted xs ==>
     isSorted (insert x xs)
 ```
 
+Running this property, we get some statistics about the generated data:
+
     >>> quickCheck prop_insert'
     OK, passed 100 tests.
     54% empty.
     27% singleton.
     19% short.
+
+As we can see, all of the lists that get generated are less than 3
+elemens long! This is perhaps not what we expected. However if we
+consider that precondition says that the list must be sorted, then it
+should become clear that it's unlikely to generate such longer such
+lists completely by random[^8].
+
+### Using coverage to guide generation
 
 We now have all the pieces to test the example from the
 [motivation](#motivation) section:
@@ -946,3 +981,8 @@ The full source code is available
         Prop genResult = forAll (genList gen) prop
         genList gen = sized $ \len -> replicateM len gen
     ```
+
+[^8]: The standard workaround here is to introduce a wrapper type for
+    which we write a custom generator which generates a random list and
+    then sorts it before returning. That way no pre-condition is needed,
+    as the input will be sorted by construction so to say.

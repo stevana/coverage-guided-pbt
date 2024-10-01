@@ -400,6 +400,15 @@ Which in turn depends on:
 ``` {.haskell include=src/QuickCheckV1.hs snippet=evaluate}
 ```
 
+One last construct for writing properties that we need is the ability to
+add assumptions or pre-conditions about the input:
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=assuming}
+```
+
+Notice how if the input doesn't pass this test, then it will be
+discarded.
+
 #### Collecting statistics
 
 
@@ -440,19 +449,34 @@ we only add the newly generated input, `x`, if the `cov`erage increases.
 
 ## Example test runs using the prototype
 
+### Traditional use of coverage
+
+Let's start by having a look at how one would typically write a property
+using vanilla `quickCheck`. Consider `insert`ing into an already sorted
+list:
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=insert}
 ```
 
+If we do so, then we resulting list should remain sorted:
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=prop_insert1}
 ```
+
+This test passes:
 
 ```
 >>> quickCheck prop_insert
 OK, passed 100 tests.
 ```
 
+What do the test cases that are generated look like? This is where
+`classify` comes in:
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=prop_insert2}
 ```
+
+Running this property, we get some statistics about the generated data:
 
 ```
 >>> quickCheck prop_insert'
@@ -461,6 +485,14 @@ OK, passed 100 tests.
 27% singleton.
 19% short.
 ```
+
+As we can see, all of the lists that get generated are less than 3
+elemens long! This is perhaps not what we expected. However if we
+consider that precondition says that the list must be sorted, then it
+should become clear that it's unlikely to generate such longer such
+lists completely by random[^8].
+
+### Using coverage to guide generation
 
 We now have all the pieces to test the example from the
 [motivation](#motivation) section:
@@ -703,3 +735,7 @@ The full source code is available
     ``` {.haskell include=src/QuickCheckV1.hs snippet=testsC2}
     ```
 
+[^8]: The standard workaround here is to introduce a wrapper type for
+    which we write a custom generator which generates a random list and
+    then sorts it before returning. That way no pre-condition is
+    needed, as the input will be sorted by construction so to say.
