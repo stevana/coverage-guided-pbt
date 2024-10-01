@@ -63,6 +63,9 @@ problem!
 
 ## Background and prior work
 
+There's a lot to cover here, so I'll split it up in before and after
+Dan's post.
+
 ### Before 2015
 
 Fuzzing has an interesting origin. It was a class
@@ -229,6 +232,8 @@ One of the first things I noticed is that AFL is no longer
 > features, known as AFL++, is available from other members of the community
 > and is worth checking out." 
 
+XXX:
+
 [AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf) (2020) 
   - incorporates all of
     [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
@@ -287,6 +292,8 @@ One key question we need to answer in order to be able to implement anything
 that's coverage-guided is: where do we get the coverage information from?
 
 ### Getting the coverage information
+
+XXX:
 
 AFL and `go-fuzz` both get it from the compiler. 
 
@@ -411,14 +418,27 @@ discarded.
 
 #### Collecting statistics
 
+The way we collect statistics about the generated data is through these
+two functions:
+
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=classify}
 ```
 
 #### Running the tests
 
+Finally we have all the pieces we need to be able to actually run the
+tests. The testing can be configured:
+
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Config}
 ```
+
+Where `maxTest` is the amount of passing test cases that will be run,
+`maxFail` is the amount of tests that are allowed to be discarded,
+`size` is how the size parameter to the generator changes between tests,
+and `every` is used to print something (or not) between each test.
+
+The tests themselves can now be run as follows:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=quickCheck}
 ```
@@ -448,6 +468,10 @@ of how many things have been `classify`ed (the `stamps` parameter). Notice how
 we only add the newly generated input, `x`, if the `cov`erage increases.
 
 ## Example test runs using the prototype
+
+Before we go back to the example from the motivation section, let's have
+a look at how coverage information is traditional used in property-based
+testing.
 
 ### Traditional use of coverage
 
@@ -625,6 +649,8 @@ The full source code is available
 [here](https://github.com/stevana/coverage-guided-pbt).
 
 ## Conclusion and further work
+
+XXX:
 
 * Exponential -> polynomial
 
