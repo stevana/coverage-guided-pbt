@@ -114,7 +114,7 @@ seeds that lead to better coverage are mutated with the hope that they
 will lead to even better coverage.
 
 One of the first, and perhaps still most widely known, such
-*coverage-guided* fuzzers is called
+*coverage-guided* fuzzers is Michał Zalewski's
 [AFL](https://lcamtuf.coredump.cx/afl/) (2013).
 
 To give you an idea of how powerful this idea is, check out the list of
@@ -241,76 +241,89 @@ One of the first things I noticed is that AFL is no longer
 > and additional features, known as AFL++, is available from other
 > members of the community and is worth checking out."
 
-XXX:
-
+Whereas AFL is based on a single idea of how the fuzzer does its
+exploration with very few knobs,
 [AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf)
-(2020)
-
-- incorporates all of
-  [AFLFast](https://mboehme.github.io/paper/CCS16.pdf)'s [power
-  schedules](https://aflplus.plus/docs/power_schedules/) and adds some
-  new ones
-- explain what power schedules are?
-- <https://github.com/mboehme/aflfast>
+(2020) keeps the basic AFL evolutionary algorithm structure, but
+incorporates a lot of new research on other ways to explore the state
+space.
 
 For example, which seed gets scheduled and how many times it gets
-mutated per round are two parameters that can be tweaked to achieve
-different paths of exploration throughout the system under test.
+mutated per round are [two new
+parameters](https://mboehme.github.io/paper/CCS16.pdf) that can be
+tweaked to achieve different paths of exploration throughout the system
+under test.
 
-- When you search for "coverage-guided property-based testing" in the
-  academic literature
+The next thing I did was to search for "coverage-guided property-based
+testing" in the academic literature.
 
-- [*Coverage guided, property based
-  testing*](https://dl.acm.org/doi/10.1145/3360607) by Leonidas
-  Lampropoulos, Michael Hicks, Benjamin C. Pierce (2019)
+One of the first papers I found was [*Coverage guided, property based
+testing*](https://dl.acm.org/doi/10.1145/3360607) by Leonidas
+Lampropoulos, Michael Hicks, Benjamin C. Pierce (2019).
 
-- FuzzChick Coq/Rocq library
+In this paper FuzzChick, Coq/Rocq library, that adds AFL-style coverage
+instrumentation to QuickChick (a Rocq QuickCheck clone) is presented.
 
-- Not released, lives in an [unmaintained
-  branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
-  that [doesn't
-  compile](https://github.com/QuickChick/QuickChick/issues/277)?
+Unfortunately the only source code I could find lives in an
+[unmaintained
+branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
+that [doesn't
+compile](https://github.com/QuickChick/QuickChick/issues/277).
 
-  - coverage info is [same as in
-    AFL](https://youtu.be/RR6c_fiMfJQ?t=2226)
+The related works section of the paper has a couple of interesting
+references though.
 
-- FuzzChick, related work mentions:
+The main inspiration fro FuzzChick seems to have been Stephen Dolan et
+al's OCaml library called
+[Crowbar](https://github.com/ocaml/ocaml.org-media/blob/086fc25105cbccb188c28ec74126d72962921ff8/meetings/ocaml/2017/extended-abstract__2017__stephen-dolan_mindy-preston__testing-with-crowbar.pdf)
+(2017).
 
-- [JQF + Zest: Coverage-guided semantic fuzzing for
-  Java](https://github.com/rohanpadhye/jqf)?
+Crowbar uses a stream of bytes to drive its generators, similar to
+Hypothesis, and it's this stream that AFL is hooked up to.
 
-- [Crowbar](https://github.com/stedolan/crowbar)
+This indirection is Crowbar's (and by extension, I guess, also
+HypoFuzz's) biggest weakness.
 
-  - [extended abstract from OCaml
-    workshop](https://github.com/ocaml/ocaml.org-media/blob/086fc25105cbccb188c28ec74126d72962921ff8/meetings/ocaml/2017/extended-abstract__2017__stephen-dolan_mindy-preston__testing-with-crowbar.pdf)
-    (2017)
-  - Uses fuzzing indirectly to generate the data?
+AFL is good at manipulating this byte stream, but because the bytes are
+not used directly to test the system under test, but rather to generate
+data which in turn is used for testing, some of its effectiveness is
+lost. This becomes particularly obvious when data structures with sparse
+pre-conditions, e.g. sorted list or a binary search tree.
 
-- [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
-  [FuzzTest](https://github.com/google/fuzztest) ("It is a
-  first-of-its-kind tool that bridges the gap between fuzzing and
-  property-based testing") (2022?)
+That's what the authors of FuzzChick say at least, while claiming that
+they addressed this weakness by doing type-aware mutations.
 
-  - Difference to go-fuzz?
+The other libraries that the paper mentions are from the imperative
+language community.
 
-- [honggfuzz](https://github.com/google/honggfuzz)
+For example [*JQF + Zest: Coverage-guided semantic fuzzing for
+Java*](https://github.com/rohanpadhye/jqf),
+[libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
+[FuzzTest](https://github.com/google/fuzztest) (2022?) for C++.
 
-  - open PR to add it to cargo fuzz:
-    <https://github.com/rust-fuzz/book/pull/14>
+Rust's `cargo fuzz` seems to build upon libfuzzer, see the chaper on
+[*Structure-aware fuzzing using libfuzzer-sys in
+Rust*](https://rust-fuzz.github.io/book/cargo-fuzz/structure-aware-fuzzing.html)
+in the Rust Fuzz Book.
 
-- [Structure-aware fuzzing using libfuzzer-sys in
-  Rust](https://rust-fuzz.github.io/book/cargo-fuzz/structure-aware-fuzzing.html)
+The FuzzTest README claims "It is a first-of-its-kind tool that bridges
+the gap between fuzzing and property-based testing". I can't tell why
+they would claim that, given that it appears to have been released in
+2022 and many of the tools we looked at above seem to have successfully
+combined the two approaches before that. For example, how is it
+different from Go-fuzz?
 
-- [MUTAGEN: Reliable Coverage-Guided, Property-Based Testing using
-  Exhaustive
-  Mutations](https://www.mista.me/assets/pdf/icst23-preprint.pdf) (2023)
+In my search I also found the paper [*MUTAGEN: Reliable Coverage-Guided,
+Property-Based Testing using Exhaustive
+Mutations*](https://www.mista.me/assets/pdf/icst23-preprint.pdf) by
+Agustín Mista and Alejandro Russo (2023).
 
-  - <https://github.com/OctopiChalmers/mutagen/>
-  - Uses GHC
-    [plugin](https://github.com/OctopiChalmers/mutagen/blob/main/src/Test/Mutagen/Tracer/Plugin.hs)
-    to annotate source code with coverage information of: function
-    clauses, case statements, multi-way ifs, and each branch of
-    if-then-else expressions
+This paper seems to build upon the FuzzChick paper, however it swaps out
+the AFL-style coverage instrumentation for the use of a GHC
+[plugin](https://github.com/OctopiChalmers/mutagen/blob/main/src/Test/Mutagen/Tracer/Plugin.hs)
+to annotate source code with coverage information of: function clauses,
+case statements, multi-way ifs, and each branch of if-then-else
+expressions.
 
 Imperative languages such as Go, Python, C++, Rust, and Java seem ahead
 of functional languages when it comes to combining coverage-guided
