@@ -253,7 +253,9 @@ XXX:
 - explain what power schedules are?
 - <https://github.com/mboehme/aflfast>
 
-<!-- -->
+For example, which seed gets scheduled and how many times it gets
+mutated per round are two parameters that can be tweaked to achieve
+different paths of exploration throughout the system under test.
 
 - When you search for "coverage-guided property-based testing" in the
   academic literature
@@ -319,40 +321,34 @@ version, based on the original property-based testing implementation.
 
 ## Prototype implementation
 
+### Getting the coverage information
+
 One key question we need to answer in order to be able to implement
 anything that's coverage-guided is: where do we get the coverage
 information from?
-
-### Getting the coverage information
-
-XXX:
-
-AFL and `go-fuzz` both get it from the compiler.
-
-AFL injects code into every [basic
-block](https://en.wikipedia.org/wiki/Basic_block).
 
 When I've been thinking about how to implement coverage-guided
 property-based testing in the past, I always got stuck thinking that
 parsing the coverage output from the compiler in between test case
 generation rounds would be annoying and slow.
 
-I didn't know that you could get this information from a library
-provided by the GHC compiler in Haskell, until I read Shae "shapr"
-Erisson does in his
-[post](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html).
+I thought that in the best case scenario the compiler might provide a
+library which exposes the coverage information[^3].
 
-- Footnote? Shae "shapr" Erisson's post [*Run property tests until
-  coverage stops
-  increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html) (2023)
-  and [trynocular](https://github.com/shapr/trynocular) library.
-  - This only uses coverage as a stopping condition, not to actually
-    drive the generation...
+It wasn't until I started researching this post that I realised that
+AFL, and most coverage-guided fuzzers since, actually inject custom
+coverage capturing code into compiled programs at every branch point or
+[basic block](https://en.wikipedia.org/wiki/Basic_block). It's explained
+in more detail in the
+[whitepaper](https://lcamtuf.coredump.cx/afl/technical_details.txt).
 
-While this certainly makes things easier, it wasn't until I read about
-Antithesis' ["sometime
+The main reason they do it is because of performance, not because it's
+necessarily easier, in fact I still don't understand exactly how it
+works.
+
+It wasn't until I read about Antithesis' ["sometime
 assertions"](https://antithesis.com/docs/best_practices/sometimes_assertions.html)
-that I started seeing a really simple solution to the problem.
+that I started seeing a simple solution to the problem.
 
 These "sometimes assertions" can be thought of as generalised coverage,
 in that if we would annotate every single line, expression or branch
@@ -364,14 +360,14 @@ annotate every single line, expression or branch, we can annotate
 *interesting* points in our program.
 
 The final piece of the puzzle, and I think this is the only original
-idea that this post adds[^3], is that property-based testing already has
+idea that this post adds[^4], is that property-based testing already has
 functionality for implementing "sometimes assertions": the `label`,
 `classify` and `collect` machinary for gathering run-time statistics of
 the generated data!
 
 This machinary is [crucial](https://www.youtube.com/watch?v=NcJOiQlzlXQ)
 for writing good tests and has been part of the QuickCheck
-implementation since the very first version[^4]!
+implementation since the very first version[^5]!
 
 So the question is: can we implement coverage-guided property-based
 testing using the internal notion of coverage that property-based
@@ -385,7 +381,7 @@ parts of QuickCheck as defined in the appendix of the original
 
 #### Generating input data
 
-Let's start with the generator[^5]:
+Let's start with the generator[^6]:
 
 ``` haskell
 newtype Gen a = Gen (Int -> StdGen -> a)
@@ -425,7 +421,7 @@ vector n = sequence [ arbitrary | _i <- [1..n] ]
 
 Instead of defining generators directly for different datatypes,
 QuickCheck first wraps generators in a type class called
-`Arbitrary`[^6]:
+`Arbitrary`[^7]:
 
 ``` haskell
 class Arbitrary a where
@@ -618,7 +614,7 @@ Okey, so the above is the first version of the original property-based
 testing tool, QuickCheck. Now let's add coverage-guidence to it!
 
 The function that checks a property with coverage-guidance slight
-different from `quickCheck`[^7]:
+different from `quickCheck`[^8]:
 
 ``` haskell
 coverCheck :: (Arbitrary a, Show a) => Config -> ([a] -> Property)  -> IO ()
@@ -731,7 +727,7 @@ As we can see, all of the lists that get generated are less than 3
 elemens long! This is perhaps not what we expected. However if we
 consider that precondition says that the list must be sorted, then it
 should become clear that it's unlikely to generate such longer such
-lists completely by random[^8].
+lists completely by random[^9].
 
 ### Using coverage to guide generation
 
@@ -883,7 +879,7 @@ you can see how it first find the `"b"`, then `"ba"`, etc:
     "bad!"
 
 The full source code is available
-[here](https://github.com/stevana/coverage-guided-pbt).
+[here](https://github.com/stevana/coverage-guided-pbt/blob/main/src/QuickCheckV1.hs).
 
 ## Conclusion and further work
 
@@ -924,6 +920,8 @@ XXX:
 - Type-generic mutation?
 
 - sometimes_each?
+
+- <https://en.wikipedia.org/wiki/L%C3%A9vy_flight> (optimises search)
 
 ## See also
 
@@ -976,27 +974,34 @@ XXX:
     and its [mutation
     heuristics](https://lcamtuf.blogspot.com/2014/08/binary-fuzzing-strategies-what-works.html).
 
-[^3]: As I was writing up, I stumbled across the paper [*Ijon: Exploring
+[^3]: In the case of Haskell, I didn't know that there was such a
+    library until read Shae "shapr" Erisson's post [*Run property tests
+    until coverage stops
+    increasing*](https://shapr.github.io/posts/2023-07-30-goldilocks-property-tests.html)
+    (2023). Note that Shae's post only uses coverage as a stopping
+    condition, not to actually drive the generation of test cases.
+
+[^4]: As I was writing up, I stumbled across the paper [*Ijon: Exploring
     Deep State Spaces via
     Fuzzing*](https://ieeexplore.ieee.org/document/9152719) (2020) which
     lets the user to add custom coverage annotations. HypoFuzz also has
     this
     [functionality](https://hypofuzz.com/docs/configuration.html#custom-coverage-events).
 
-[^4]: See the appendix of the original
+[^5]: See the appendix of the original
     [paper](https://dl.acm.org/doi/10.1145/351240.351266) that first
     introduced property-based testing. It's interesting to note that the
     collecting statistics functionality is older than shrinking.
 
-[^5]: We'll not talk about the `coarbitrary` method of the `Arbitrary`
+[^6]: We'll not talk about the `coarbitrary` method of the `Arbitrary`
     type class, which is used to generate functions, in this post.
 
-[^6]: The reason for wrapping `Gen` in the `Arbitrary` type class is so
+[^7]: The reason for wrapping `Gen` in the `Arbitrary` type class is so
     that generators don't have to be passed explicitly. Not everyone
     agrees that this is a good idea, as type class instances cannot be
     managed by the module system.
 
-[^7]: It might be interesting to note that we can implement this
+[^8]: It might be interesting to note that we can implement this
     signature using the original combinators:
 
     ``` haskell
@@ -1008,7 +1013,7 @@ XXX:
         genList gen = sized $ \len -> replicateM len gen
     ```
 
-[^8]: The standard workaround here is to introduce a wrapper type for
+[^9]: The standard workaround here is to introduce a wrapper type for
     which we write a custom generator which generates a random list and
     then sorts it before returning. That way no pre-condition is needed,
     as the input will be sorted by construction so to say.
