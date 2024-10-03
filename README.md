@@ -896,54 +896,51 @@ The full source code is available
 
 ## Conclusion and further work
 
-XXX:
+We've seen how to add converage-guidance to the first version of the
+first property-based testing tool, QuickCheck, in about 35 lines of
+code.
 
-- Exponential -\> polynomial
+Coverage-guidance effectively reduced a exponential problem into a
+polynomial one, by building on previous test runs' successes in
+increasing the coverage.
 
-- Makes more sense for stateful systems than pure functions? Or atleast
-  properties that expect a sequence of inputs?
+The solution does change the QuickCheck API slightly by requring a
+property on a list of `a`, rather than merely `a`, so it's not suitable
+for all properties.
 
-- Don't rerun all commands for every newly generate command
+I think this limitation isn't so important, because going further I'd
+like to apply coverage-guidance to testing stateful systems. When
+testing stateful systems, which I've written about
+[here](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html),
+one always generates a list of commands anyway, so the limitation
+doesn't matter.
 
-  - only reset the system when shrinking
+A more serious limitation with the current approach is that it's too
+greedy and will seek to maximise coverage, without ever backtracking.
+This means that it can easily get stuck in local maxima. Consider the
+example:
 
-- Problem of strategy (pick something as basis for progress): coverage,
-  logs, value of memory, helps bootstap the process. Generalise to
-  support more?
+    if input[0] == 'b'
+      if input[1] == 'a'
+        if input[2] == 'd'
+          skip
+    if input[0] == 'w'
+      if input[1] == 'o'
+        if input[2] == 'r'
+          if input[3] == 's'
+            if input[4] == 'e'
+              error
 
-- Local maxima?
+If we generate an input that starts with 'b' (rather than 'w'), then
+we'll get stuck never finding the error.
 
-- Problem of tactics: picking a good input distributed for the testing
-  problem at hand. Make previous input influence the next input?
-  Dependent events, e.g. if one packet gets lost, there's a higher
-  chance that the next packet will be lost as well.
+Real coverage-guided tools, like AFL, will not get stuck like that.
+While I have a variant of the code that can cope with this, I chose to
+present the above greedy version because it's simpler.
 
-- Save `(Coverage, Mutation, Frequency, Coverage)` stats?
-
-- More realistic example, e.g.: leader election, transaction rollback,
-  failover?
-
-- Annoying to sprinkle sometimes assertions everywhere?
-
-  - Can it be combined with logging or tracing?
-
-- Use size parameter to implement AFL heuristic for choosing integers?
-  Or just use `frequency`?
-
-- Type-generic mutation?
-
-- sometimes_each?
-
-- <https://en.wikipedia.org/wiki/L%C3%A9vy_flight> (optimises search)
-
-## See also
-
-- <https://carstein.github.io/fuzzing/2020/04/18/writing-simple-fuzzer-1.html>
-- <https://carstein.github.io/fuzzing/2020/04/25/writing-simple-fuzzer-2.html>
-- <https://carstein.github.io/fuzzing/2020/05/02/writing-simple-fuzzer-3.html>
-- <https://carstein.github.io/fuzzing/2020/05/21/writing-simple-fuzzer-4.html>
-- [How Antithesis finds bugs (with help from the Super Mario
-  Bros)](https://antithesis.com/blog/sdtalk/)
+I might write another post with a more AFL-like solution at some later
+point, but I'd also like to encourge others to port these ideas to your
+favorite language and experiment!
 
 [^1]: This example is due to Dmitry Vyukov, the main author of
     [go-fuzz](https://github.com/dvyukov/go-fuzz), but it's basically an

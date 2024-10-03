@@ -14,7 +14,6 @@ type Mutate a = StdGen -> a -> a
 
 mutateChar :: Mutate Char
 mutateChar prng ch =  generate 0 prng genChar
--- if ch == 'A' then 'Z' else pred ch
 
 mutateInt16 :: Mutate Int16
 mutateInt16 prng _i = fst (random prng) -- XXX: this doesn't actually mutate...
