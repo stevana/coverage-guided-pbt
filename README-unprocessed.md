@@ -66,7 +66,7 @@ Dan's post.
 
 ### Before 2015
 
-Fuzzing has an interesting origin. It was a class
+Fuzzing has an interesting origin. It started as a class
 [project](http://pages.cs.wisc.edu/~bart/fuzz/CS736-Projects-f1988.pdf) in an
 advanced operating systems course taught by Barton Miller at the University of
 Wisconsin in 1988.
@@ -75,82 +75,71 @@ The project was inspired by the observation that back then, if you logged into
 your workstation via a dail-up modem from home and it rained, then frequently
 random characters would appear in the terminal. The line noise wasn't the
 surprising thing, but rather that the extra characters would sometimes crash
-the program that they tried to invoke.
-
-Among these programs were basic utilities such as `vi`, `mail`, `cc`, `make`,
-`sed`, `awk`, `sort`, etc, and it was reasonable to expect that these would
-give an error message rather than crash and core dump if fed with some extra
-characters caused by the rain.
+the program that they tried to invoke. Among these programs were basic
+utilities such as `vi`, `mail`, `cc`, `make`, `sed`, `awk`, `sort`, etc, and it
+was reasonable to expect that these would give an error message rather than
+crash and core dump if fed with some extra characters caused by the rain.
 
 So the project set out to basically recreate what the rain did, but more
 effectively, but essentially generating random noise (stream of bytes) and
-feeding that to different utilities and see if they crashed.
-
-A couple of years later Barton et al published [*An empirical study of the
-reliability of UNIX utilities*](https://dl.acm.org/doi/10.1145/96267.96279)
-(1990) which documents their findings.
+feeding that to different utilities and see if they crashed. A couple of years
+later Barton et al published [*An empirical study of the reliability of UNIX
+utilities*](https://dl.acm.org/doi/10.1145/96267.96279) (1990) which documents
+their findings.
 
 Inserting random characters was effective in finding corner cases where the
-programmers forgot to properly validate the input from the user.
-
-However it wouldn't trigger bugs hiding deeper under the surface, such as the
-"bad!" example from the previous section.
+programmers forgot to properly validate the input from the user. However it
+wouldn't trigger bugs hiding deeper under the surface, such as the `"bad!"`
+example from the previous section. 
 
 This changed around 2007 when people [started
 thinking](https://lcamtuf.coredump.cx/afl/historical_notes.txt) about how
 fuzzing can be combined with [evolutionary
-algorithms](https://en.wikipedia.org/wiki/Evolutionary_algorithm). 
-
-The idea being that instead of generating random bytes all the time as with
-classical fuzzing, we can use coverage information from one test to mutate the
-input for the next test. Or to use the evolution metaphor: seeds that lead to
-better coverage are mutated with the hope that they will lead to even better
-coverage.
+algorithms](https://en.wikipedia.org/wiki/Evolutionary_algorithm). The idea
+being that instead of generating random bytes all the time as with classical
+fuzzing, we can use coverage information from one test to mutate the input for
+the next test. Or to use the evolution metaphor: seeds that lead to better
+coverage are mutated with the hope that they will lead to even better coverage. 
 
 One of the first, and perhaps still most widely known, such *coverage-guided*
-fuzzers is Michał Zalewski's [AFL](https://lcamtuf.coredump.cx/afl/)
-(2013).
-
-To give you an idea of how powerful this idea is, check out the list of
-[bugs](https://lcamtuf.coredump.cx/afl/#bugs) that it found and this post
+fuzzers is Michał Zalewski's [AFL](https://lcamtuf.coredump.cx/afl/) (2013). To
+get a feel for how effective AFL-style coverage-guidance is, check out the list
+of [bugs](https://lcamtuf.coredump.cx/afl/#bugs) that it found and this post
 about how it manages to figure out the [jpeg
 format](https://lcamtuf.blogspot.com/2014/11/pulling-jpegs-out-of-thin-air.html)
 on its own[^2].
 
 Since AFL is the tool that Dan explicitly mentions in his post, let's stop at
 this point and go back to his point, before looking at what happened since
-with coverage-guided fuzzers.
+with coverage-guided fuzzers. 
 
 Recall that Dan was asking why this idea of coverage-guidance wasn't present in
-property-based testing tools.
-
-I've written about the
+property-based testing tools. I've written about the
 [history](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#the-history-of-property-based-testing)
 of property-based testing and explained how it
 [works](https://stevana.github.io/the_sad_state_of_property-based_testing_libraries.html#pure-property-based-testing-recap)
 already, so I won't take up space by repeating myself here. Let's just note
 that the [original
 paper](https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf) on
-property-based testing was published in 2000.
-
-So when Dan wrote asking about this question property-based testing would
-have been fifteen and AFL two years old.
+property-based testing was published in 2000. So when Dan wrote asking about
+this question property-based testing would have been fifteen and AFL two years
+old.
 
 The main difference between property-based testing and fuzzing is that
 fuzzing requires less work by the user. Simply hook up the byte generator to
 the function that expects bytes as input and off it goes looking for crashes.
+Property-based testing on the other hand can test functions that take arbitrary
+data structures as input (not just bytes), but you have to describe how to
+generate such inputs. 
 
-Property-based testing on the other hand can test functions that take
-arbitrary data structures as input (not just bytes), but you have to describe
-how to generate such inputs. Fuzzing only looks for crashes, while
-property-based testing lets you specify arbitrary relations that should hold
-between the input and output of the system under test.
-
-For example, we can generate binary search trees and check that after we
-insert something into an arbitrary binary search tree then it will remain
-sorted (when we do an inorder traversal). Fuzzing can't check such
-properties, and generating random bytes would seldom lead to valid binary
-search trees.
+Fuzzing only looks for crashes, while property-based testing lets you specify
+arbitrary relations that should hold between the input and output of the system
+under test. For example, we can generate binary search trees and check that
+after we insert something into an arbitrary binary search tree then it will
+remain sorted (when we do an inorder traversal). Fuzzing can't check such
+properties, and furthermore because they generate random bytes it's unlikely
+that they'll even generate a valid binary search tree to begin with (without
+lots of coverage-driven testing).
 
 On the other hand, the coverage of property-based tests is only as good as
 the user provided generators. Corner cases where slightly modified data leads
@@ -158,12 +147,15 @@ to e.g. exception handling is not explored automatically, and coverage
 information is not used to guide the input generation process.
 
 By now we should have enough background to see that the idea of combining
-coverage-guidance and property-based testing makes sense. What if we can use
-user provided generators to kick start the exploration, but then mutate the
-data and use coverage information to find problems that wouldn't have been
-surfaced with the user provided input generators alone, or recall from the
-example in the introduction, the probability of generating the input in a
-single shot is simply too unlikely.
+coverage-guidance and property-based testing makes sense. Basically what we'd
+like is to:
+
+1. Use user provided generators to kick start the exploration in the right
+   direction;
+2. Mutate the generated data, while preserving its type, to surface bugs that
+   user provided generators alone wouldn't have found;
+3. Use coverage information to iteratively get deeper into the state space of
+   the system under test, like in the "bad!" example from the motivation.
 
 ### After 2015
 
@@ -209,7 +201,6 @@ As far as I can tell, it hasn't been reintroduced since.
 
 However it's possible to hook Hypothesis up to [use external
 fuzzers](https://hypothesis.readthedocs.io/en/latest/details.html#use-with-external-fuzzers).
-
 Hypothesis already uses random bytes as basis for its generators, unlike
 QuickCheck which uses an integer seed, so I suppose that the external fuzzers
 essentially fuzz the random input bytes that in turn are used to generate more
