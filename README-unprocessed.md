@@ -43,7 +43,7 @@ coverage-guidance) would be able to find the error?
 To make the calculation easier, let's say that we always generate arrays of
 length $4$. A byte consists of eight bits, so it has $2^8$ possible values.
 That means that the probability is $\frac{1}{2^8} \cdot \frac{1}{2^8} \cdot
-\frac{1}{2^8} \cdot \frac{1}{2^8}) = \frac{1}{2^8}^4 = \frac{1}{2^{32}}$ which
+\frac{1}{2^8} \cdot \frac{1}{2^8} = (\frac{1}{2^8})^4 = \frac{1}{2^{32}}$ which
 is approximately $1$ in $4$ billion. In a realistic test suite, we wouldn't
 restrict the length of the array to be $4$, and hence the probability will be
 even worse.
@@ -54,7 +54,7 @@ further into the nested ifs, and so we take note of that and start generating
 longer arrays that start with `'b'` and see if we get even further, etc. By
 building on previous successes in getting more coverage, we can effectively
 reduce the problem to only need $\frac{1}{2^8} + \frac{1}{2^8} + \frac{1}{2^8} + 
-\frac{2^8} = \frac{1}{2^8} \cdot 4 = \fraq{1}{2^{10}} = \frac{1}{1024}$.
+\frac{1}{2^8} = \frac{1}{2^8} \cdot 4 = \frac{1}{2^{10}} = \frac{1}{1024}$.
 
 In other words coverage-guidance turns an exponential problem into a polynomial
 problem!
@@ -197,9 +197,8 @@ note](https://github.com/HypothesisWorks/hypothesis/pull/1564/commits/dcbea9148b
 > feature in its current form does not seem to be worth the cost of using, and
 > whatever replaces it will likely look very different."
 
-As far as I can tell, it hasn't been reintroduced since.
-
-However it's possible to hook Hypothesis up to [use external
+As far as I can tell, it hasn't been reintroduced since. However it's possible
+to hook Hypothesis up to [use external
 fuzzers](https://hypothesis.readthedocs.io/en/latest/details.html#use-with-external-fuzzers).
 Hypothesis already uses random bytes as basis for its generators, unlike
 QuickCheck which uses an integer seed, so I suppose that the external fuzzers
@@ -212,7 +211,7 @@ The [HypoFuzz](https://hypofuzz.com/docs/features.html#fuzzer-details) tool
 works around this mismatch by scheduling fuzzing time among the many Hypothesis
 properties in your test suite.
 
-What else has happenend since Dan's post?
+What else has happened since Dan's post?
 
 One of the first things I noticed is that AFL is no longer
 [maintained](https://lcamtuf.coredump.cx/afl/):
@@ -222,17 +221,14 @@ One of the first things I noticed is that AFL is no longer
 > features, known as AFL++, is available from other members of the community
 > and is worth checking out." 
 
-Whereas AFL is based on a single idea of how the fuzzer does its
-exploration with very few knobs,
-[AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf)
-(2020) keeps the basic AFL evolutionary algorithm structure, but
-incorporates a lot of new research on other ways to explore the state space.
-
-For example, which seed gets scheduled and how many times it gets
-mutated per round are [two new
-parameters](https://mboehme.github.io/paper/CCS16.pdf) that can be
-tweaked to achieve different paths of exploration throughout the system
-under test.
+Whereas AFL is based on a single idea of how the fuzzer does its exploration
+with very few knobs,
+[AFL++](https://www.usenix.org/system/files/woot20-paper-fioraldi.pdf) (2020)
+keeps the basic AFL evolutionary algorithm structure, but incorporates a lot of
+new research on other ways to explore the state space. For example, which seed
+gets scheduled and how many times it gets mutated per round are [two new
+parameters](https://mboehme.github.io/paper/CCS16.pdf) that can be tweaked to
+achieve different paths of exploration throughout the system under test.
 
 The next thing I did was to search for "coverage-guided property-based
 testing" in the academic literature.
