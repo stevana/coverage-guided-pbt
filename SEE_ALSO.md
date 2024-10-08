@@ -7,3 +7,7 @@
 
 * [How Antithesis finds bugs (with help from the Super Mario
   Bros)](https://antithesis.com/blog/sdtalk/)
+
+* [QuickFuzz testing for fun and
+  profit](https://ri.conicet.gov.ar/bitstream/handle/11336/50343/CONICET_Digital_Nro.8f82685b-598a-4e24-aaa9-7330786054a5_A.pdf)
+  (2017)

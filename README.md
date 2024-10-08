@@ -8,19 +8,14 @@ Almost ten years ago, back in 2015, Dan Luu wrote a
 property-based testing wasn't a thing.
 
 In this post I'll survey the coverage-guided landscape, looking at what
-was there before Dan's post and what has happened since.
+was there before Dan's post and what has happened since. I'll also show
+how to add basic coverage-guidance to the first version of the original
+property-based testing tool, QuickCheck, in about 35 lines of code.
 
-The short version is: today imperative languages seem to be in the
-forefront of combining coverage-guidance and property-based testing.
-
-In an effort to try to help functional programming languages catch up,
-I'll show how coverage-guidence can be added to the first version of the
-original property-based testing tool, QuickCheck, in about 35 lines of
-code.
-
-The technique is programming language agnostic and doesn't rely on any
-language-specific instrumentation of the software under test (unlike
-previous implementations of this idea).
+Unlike many previous implementations of this idea, the technique used to
+implement coverage-guidance is programming language agnostic and doesn't
+rely on any language-specific instrumentation of the software under
+test.
 
 ## Motivation
 
@@ -42,26 +37,28 @@ input byte array starts with the bytes `"bad!"`:
         }
     }
 
-If we were to try to test this function with property-based testing,
-where we restrict the input to be of exactly length 4, then it would
-still take
-$\mathcal{O}(2^8 \cdot 2^8 \cdot 2^8 \cdot 2^8) = \mathcal{O}((2^8)^4) =
-\mathcal{O}(2^{32}) \approx 4B$ tries to trigger the bug! A more
-realistic test wouldn't fix the length of the input, which would make
-the probability of triggering the bug even lower.
+What are the odds that a property-based testing tool (without
+coverage-guidance) would be able to find the error?
+
+To make the calculation easier, let's say that we always generate arrays
+of length $4$. A byte consists of eight bits, so it has $2^8$ possible
+values. That means that the probability is
+$\frac{1}{2^8} \cdot \frac{1}{2^8} \cdot
+\frac{1}{2^8} \cdot \frac{1}{2^8}) = \frac{1}{2^8}^4 = \frac{1}{2^{32}}$
+which is approximately $1$ in $4$ billion. In a realistic test suite, we
+wouldn't restrict the length of the array to be $4$, and hence the
+probability will be even worse.
 
 With coverage-guidance we keep track of inputs that resulted in
 increased coverage. So, for example, if we generate the array
-`[]byte{'A'}` we get further into the nested ifs, and so we take note of
-that and start generating longer arrays that start with 'A' and see if
-we get even further, etc.
+`[]byte{'b'}` we get further into the nested ifs, and so we take note of
+that and start generating longer arrays that start with `'b'` and see if
+we get even further, etc. By building on previous successes in getting
+more coverage, we can effectively reduce the problem to only need
+$\frac{1}{2^8} + \frac{1}{2^8} + \frac{1}{2^8} + 
+\frac{2^8} = \frac{1}{2^8} \cdot 4 = \fraq{1}{2^{10}} = \frac{1}{1024}$.
 
-By building on previous succeses in getting more coverage, we can
-effectively reduce the problem to only need
-$\mathcal{O}(2^8 + 2^8 + 2^8 + 2^8) =
-\mathcal{O}(2^8 \cdot 4) = \mathcal{O}(2^{10}) = 1024$ tries.
-
-In other words coverage-guidence turns an exponential problem into a
+In other words coverage-guidance turns an exponential problem into a
 polynomial problem!
 
 ## Background and prior work
@@ -920,18 +917,15 @@ greedy and will seek to maximise coverage, without ever backtracking.
 This means that it can easily get stuck in local maxima. Consider the
 example:
 
+    if input[0] == 'o'
+      if input[1] == 'k'
+        return
     if input[0] == 'b'
       if input[1] == 'a'
         if input[2] == 'd'
-          skip
-    if input[0] == 'w'
-      if input[1] == 'o'
-        if input[2] == 'r'
-          if input[3] == 's'
-            if input[4] == 'e'
-              error
+          error
 
-If we generate an input that starts with 'b' (rather than 'w'), then
+If we generate an input that starts with 'o' (rather than 'b'), then
 we'll get stuck never finding the error.
 
 Real coverage-guided tools, like AFL, will not get stuck like that.
