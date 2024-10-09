@@ -366,20 +366,24 @@ statistics of the generated data!
 
 This machinery is [crucial](https://www.youtube.com/watch?v=NcJOiQlzlXQ) for
 writing good tests and has been part of the QuickCheck implementation since the
-very first version[^5]!
+very first version[^5].
 
 So the question is: can we implement coverage-guided property-based testing
 using the internal notion of coverage that property-based testing already has?
 
 ### The first version of QuickCheck
 
-For the sake of self-containment, let's reproduce the essential parts of
-QuickCheck as defined in the appendix of the original
-[paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000).
+Before we answer the above question, let's remind ourselves of how a
+property-based testing library is implemented. For the sake of
+self-containment, let's reproduce the essential parts of QuickCheck as defined
+in the appendix of the original
+[paper](https://dl.acm.org/doi/10.1145/351240.351266) that first introduced
+property-based testing (ICFP, 2000).
 
 #### Generating input data
 
-Let's start with the generator[^6]:
+Let's start with the generator[^6], which is used to generate random inputs to
+the software under test:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Gen}
 ```
@@ -478,8 +482,9 @@ The tests themselves can now be run as follows:
 
 ### The extension to add coverage-guidance
 
-Okey, so the above is the first version of the original property-based testing
-tool, QuickCheck. Now let's add coverage-guidence to it!
+Okay, so the above is the first version of the original property-based testing
+tool, QuickCheck. Now let's add coverage-guidance to it using the machinery for
+collecting statistics about the generated data.
 
 The function that checks a property with coverage-guidance slight different
 from `quickCheck`[^8]:
