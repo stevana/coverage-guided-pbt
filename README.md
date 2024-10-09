@@ -489,7 +489,7 @@ passed or not. The `stamp` field is used to collect statistics about the
 generated test cases, while `arguments` contains all the generated
 inputs (or arguments) to the property.
 
-In order to allow the user to write properties of variying arity another
+In order to allow the user to write properties of varying arity another
 type class is introduced:
 
 ``` haskell
@@ -626,14 +626,74 @@ tests config gen rnd0 ntest nfail stamps
       (rnd1,rnd2) = split rnd0
 ```
 
-### The extension to add coverage-guidance
+### Example: traditional use of coverage
 
 Okay, so the above is the first version of the original property-based
-testing tool, QuickCheck. Now let's add coverage-guidance to it using
-the machinery for collecting statistics about the generated data.
+testing tool, QuickCheck.
+
+Before we extend it with coverage-guidance, let's have a look at an
+example property and how collecting statistics is typically used to
+ensure good coverage.
+
+The example we'll have a look at is `insert`ing into an already sorted
+list (from which insertion sort can be implemented):
+
+``` haskell
+insert :: Ord a => a -> [a] -> [a]
+insert x [] = [x]
+insert x (y : xs) | x <= y    = x : y : xs
+                  | otherwise = y : insert x xs
+```
+
+If we do so, then we resulting list should remain sorted:
+
+``` haskell
+prop_insert :: Int -> [Int] -> Property
+prop_insert x xs = isSorted xs ==> isSorted (insert x xs)
+
+isSorted :: Ord a => [a] -> Bool
+isSorted xs = sort xs == xs
+```
+
+This test passes:
+
+    >>> quickCheck prop_insert
+    OK, passed 100 tests.
+
+What do the test cases that are generated look like? This is where
+`classify` comes in:
+
+``` haskell
+prop_insert' :: Int -> [Int] -> Property
+prop_insert' x xs = isSorted xs ==>
+  classify (null xs) "empty" $
+  classify (length xs == 1) "singleton" $
+  classify (length xs > 1 && length xs <= 3) "short" $
+  classify (length xs > 3) "longer" $
+    isSorted (insert x xs)
+```
+
+Running this property, we get some statistics about the generated data:
+
+    >>> quickCheck prop_insert'
+    OK, passed 100 tests.
+    54% empty.
+    27% singleton.
+    19% short.
+
+As we can see, all of the lists that get generated are less than 3
+elements long! This is perhaps not what we expected. However if we
+consider that precondition says that the list must be sorted, then it
+should become clear that it's unlikely to generate such longer such
+lists completely by random[^8].
+
+### The extension to add coverage-guidance
+
+Now let's add coverage-guidance to it using the machinery for collecting
+statistics about the generated data.
 
 The function that checks a property with coverage-guidance slight
-different from `quickCheck`[^8]:
+different from `quickCheck`[^9]:
 
 ``` haskell
 coverCheck :: (Arbitrary a, Show a) => Config -> ([a] -> Property)  -> IO ()
@@ -687,68 +747,7 @@ track of how many things have been `classify`ed (the `stamps`
 parameter). Notice how we only add the newly generated input, `x`, if
 the `cov`erage increases.
 
-## Example test runs using the prototype
-
-Before we go back to the example from the motivation section, let's have
-a look at how coverage information is traditional used in property-based
-testing.
-
-### Traditional use of coverage
-
-Let's start by having a look at how one would typically write a property
-using vanilla `quickCheck`. Consider `insert`ing into an already sorted
-list:
-
-``` haskell
-insert :: Ord a => a -> [a] -> [a]
-insert x [] = [x]
-insert x (y : xs) | x <= y    = x : y : xs
-                  | otherwise = y : insert x xs
-```
-
-If we do so, then we resulting list should remain sorted:
-
-``` haskell
-prop_insert :: Int -> [Int] -> Property
-prop_insert x xs = isSorted xs ==> isSorted (insert x xs)
-
-isSorted :: Ord a => [a] -> Bool
-isSorted xs = sort xs == xs
-```
-
-This test passes:
-
-    >>> quickCheck prop_insert
-    OK, passed 100 tests.
-
-What do the test cases that are generated look like? This is where
-`classify` comes in:
-
-``` haskell
-prop_insert' :: Int -> [Int] -> Property
-prop_insert' x xs = isSorted xs ==>
-  classify (null xs) "empty" $
-  classify (length xs == 1) "singleton" $
-  classify (length xs > 1 && length xs <= 3) "short" $
-  classify (length xs > 3) "longer" $
-    isSorted (insert x xs)
-```
-
-Running this property, we get some statistics about the generated data:
-
-    >>> quickCheck prop_insert'
-    OK, passed 100 tests.
-    54% empty.
-    27% singleton.
-    19% short.
-
-As we can see, all of the lists that get generated are less than 3
-elemens long! This is perhaps not what we expected. However if we
-consider that precondition says that the list must be sorted, then it
-should become clear that it's unlikely to generate such longer such
-lists completely by random[^9].
-
-### Using coverage to guide generation
+### Example: using coverage to guide generation
 
 We now have all the pieces to test the example from the
 [motivation](#motivation) section:
@@ -1014,7 +1013,12 @@ favorite language and experiment!
     agrees that this is a good idea, as type class instances cannot be
     managed by the module system.
 
-[^8]: It might be interesting to note that we can implement this
+[^8]: The standard workaround here is to introduce a wrapper type for
+    which we write a custom generator which generates a random list and
+    then sorts it before returning. That way no pre-condition is needed,
+    as the input will be sorted by construction so to say.
+
+[^9]: It might be interesting to note that we can implement this
     signature using the original combinators:
 
     ``` haskell
@@ -1025,8 +1029,3 @@ favorite language and experiment!
         Prop genResult = forAll (genList gen) prop
         genList gen = sized $ \len -> replicateM len gen
     ```
-
-[^9]: The standard workaround here is to introduce a wrapper type for
-    which we write a custom generator which generates a random list and
-    then sorts it before returning. That way no pre-condition is needed,
-    as the input will be sorted by construction so to say.

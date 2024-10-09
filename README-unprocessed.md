@@ -428,7 +428,7 @@ passed or not. The `stamp` field is used to collect statistics about the
 generated test cases, while `arguments` contains all the generated
 inputs (or arguments) to the property.
 
-In order to allow the user to write properties of variying arity another
+In order to allow the user to write properties of varying arity another
 type class is introduced:
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=Testable}
@@ -480,42 +480,17 @@ The tests themselves can now be run as follows:
 ``` {.haskell include=src/QuickCheckV1.hs snippet=quickCheck}
 ```
 
-### The extension to add coverage-guidance
+### Example: traditional use of coverage
 
 Okay, so the above is the first version of the original property-based testing
-tool, QuickCheck. Now let's add coverage-guidance to it using the machinery for
-collecting statistics about the generated data.
+tool, QuickCheck. 
 
-The function that checks a property with coverage-guidance slight different
-from `quickCheck`[^8]:
+Before we extend it with coverage-guidance, let's have a look at an example
+property and how collecting statistics is typically used to ensure good
+coverage.
 
-``` {.haskell include=src/QuickCheckV1.hs snippet=coverCheck}
-```
-
-In particular notice that instead of `Testable a` we use an explicit predicate
-on a list of `a`, `[a] -> Property`. The reason for using a list in the
-predicate is so that we can iteratively make progress, using the coverage
-information. We see this more clearly if we look at the coverage-guided
-analogue of the `tests` function, in particular the `xs` parameter:
-
-``` {.haskell include=src/QuickCheckV1.hs snippet=testsC1}
-```
-
-The other important difference is the `cov`erage parameter, which keeps track
-of how many things have been `classify`ed (the `stamps` parameter). Notice how
-we only add the newly generated input, `x`, if the `cov`erage increases.
-
-## Example test runs using the prototype
-
-Before we go back to the example from the motivation section, let's have
-a look at how coverage information is traditional used in property-based
-testing.
-
-### Traditional use of coverage
-
-Let's start by having a look at how one would typically write a property
-using vanilla `quickCheck`. Consider `insert`ing into an already sorted
-list:
+The example we'll have a look at is `insert`ing into an already sorted
+list (from which insertion sort can be implemented):
 
 ``` {.haskell include=src/QuickCheckV1.hs snippet=insert}
 ```
@@ -549,12 +524,36 @@ OK, passed 100 tests.
 ```
 
 As we can see, all of the lists that get generated are less than 3
-elemens long! This is perhaps not what we expected. However if we
+elements long! This is perhaps not what we expected. However if we
 consider that precondition says that the list must be sorted, then it
 should become clear that it's unlikely to generate such longer such
 lists completely by random[^9].
 
-### Using coverage to guide generation
+### The extension to add coverage-guidance
+
+Now let's add coverage-guidance to it using the machinery for
+collecting statistics about the generated data.
+
+The function that checks a property with coverage-guidance slight different
+from `quickCheck`[^8]:
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=coverCheck}
+```
+
+In particular notice that instead of `Testable a` we use an explicit predicate
+on a list of `a`, `[a] -> Property`. The reason for using a list in the
+predicate is so that we can iteratively make progress, using the coverage
+information. We see this more clearly if we look at the coverage-guided
+analogue of the `tests` function, in particular the `xs` parameter:
+
+``` {.haskell include=src/QuickCheckV1.hs snippet=testsC1}
+```
+
+The other important difference is the `cov`erage parameter, which keeps track
+of how many things have been `classify`ed (the `stamps` parameter). Notice how
+we only add the newly generated input, `x`, if the `cov`erage increases.
+
+### Example: using coverage to guide generation
 
 We now have all the pieces to test the example from the
 [motivation](#motivation) section:
