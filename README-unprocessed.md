@@ -160,10 +160,8 @@ like is to:
 ### After 2015
 
 Having covered what had happened before Dan's post, let's have a look at what
-has happened in the ten years since his post.
-
-First off, it's worth noting that at some point he added an update to his
-post:
+has happened in the ten years since his post. First off, it's worth noting that
+at some point Dan added an update to his post:
 
 > "Update: Dmitry Vyukov's Go-fuzz, which looks like it was started a month
 > after this post was written, uses the approach from the proof of concept in
@@ -234,38 +232,31 @@ The next thing I did was to search for "coverage-guided property-based
 testing" in the academic literature.
 
 One of the first papers I found was [*Coverage guided, property based
-testing*](https://dl.acm.org/doi/10.1145/3360607) by Leonidas
-Lampropoulos, Michael Hicks, Benjamin C. Pierce (2019).
-
-In this paper FuzzChick, Coq/Rocq library, that adds AFL-style coverage
-instrumentation to QuickChick (a Rocq QuickCheck clone) is presented.
-
-Unfortunately the only source code I could find lives in an [unmaintained
+testing*](https://dl.acm.org/doi/10.1145/3360607) by Leonidas Lampropoulos,
+Michael Hicks, Benjamin C. Pierce (2019). In this paper FuzzChick, Coq/Rocq
+library, that adds AFL-style coverage instrumentation to QuickChick (a Rocq
+QuickCheck clone) is presented. Unfortunately the only source code I could find
+lives in an [unmaintained
 branch](https://github.com/QuickChick/QuickChick/compare/master...FuzzChick)
 that [doesn't compile](https://github.com/QuickChick/QuickChick/issues/277).
 
 The related works section of the paper has a couple of interesting
 references though.
 
-The main inspiration fro FuzzChick seems to have been Stephen Dolan et
-al's OCaml library called
+The main inspiration for FuzzChick seems to have been Stephen Dolan et al's
+OCaml library called
 [Crowbar](https://github.com/ocaml/ocaml.org-media/blob/086fc25105cbccb188c28ec74126d72962921ff8/meetings/ocaml/2017/extended-abstract__2017__stephen-dolan_mindy-preston__testing-with-crowbar.pdf)
-(2017). 
-
-Crowbar uses a stream of bytes to drive its generators, similar to
-Hypothesis, and it's this stream that AFL is hooked up to. 
-
-This indirection is Crowbar's (and by extension, I guess, also
-HypoFuzz's) biggest weakness. 
+(2017). Crowbar uses a stream of bytes to drive its generators, similar to
+Hypothesis, and it's this stream that AFL is hooked up to. This indirection is
+Crowbar's (and by extension, I guess, also HypoFuzz's) biggest weakness. 
 
 AFL is good at manipulating this byte stream, but because the bytes are
 not used directly to test the system under test, but rather to generate
 data which in turn is used for testing, some of its effectiveness is
 lost. This becomes particularly obvious when data structures with sparse
-pre-conditions, e.g. sorted list or a binary search tree.
-
-That's what the authors of FuzzChick say at least, while claiming that
-they addressed this weakness by doing type-aware mutations.
+pre-conditions, e.g. sorted list or a binary search tree. That's what the
+authors of FuzzChick say at least, while claiming that they addressed this
+weakness by doing type-aware mutations.
 
 The other libraries that the paper mentions are from the imperative
 language community. 
@@ -275,7 +266,7 @@ Java*](https://github.com/rohanpadhye/jqf),
 [libfuzzer](https://llvm.org/docs/LibFuzzer.html) and it's successor
 [FuzzTest](https://github.com/google/fuzztest) (2022?) for C++.
 
-Rust's `cargo fuzz` seems to build upon libfuzzer, see the chaper on
+Rust's `cargo fuzz` seems to build upon libfuzzer, see the chapter on
 [*Structure-aware fuzzing using libfuzzer-sys in
 Rust*](https://rust-fuzz.github.io/book/cargo-fuzz/structure-aware-fuzzing.html)
 in the Rust Fuzz Book.
@@ -289,15 +280,13 @@ different from Go-fuzz?
 
 In my search I also found the paper [*MUTAGEN: Reliable Coverage-Guided,
 Property-Based Testing using Exhaustive
-Mutations*](https://www.mista.me/assets/pdf/icst23-preprint.pdf) by
-Agustín Mista and Alejandro Russo (2023). 
-
-This paper seems to build upon the FuzzChick paper, however it swaps out
-the AFL-style coverage instrumentation for the use of a GHC
+Mutations*](https://www.mista.me/assets/pdf/icst23-preprint.pdf) by Agustín
+Mista and Alejandro Russo (2023). This paper seems to build upon the FuzzChick
+paper, however it swaps out the AFL-style coverage instrumentation for the use
+of a GHC
 [plugin](https://github.com/OctopiChalmers/mutagen/blob/main/src/Test/Mutagen/Tracer/Plugin.hs)
-to annotate source code with coverage information of: function clauses,
-case statements, multi-way ifs, and each branch of if-then-else
-expressions.
+to annotate source code with coverage information of: function clauses, case
+statements, and each branch of if-then-else expressions.
 
 Imperative languages such as Go, Python, C++, Rust, and Java seem ahead of
 functional languages when it comes to combining coverage-guided fuzzing and
@@ -332,24 +321,50 @@ The main reason they do it is because of performance, not because it's
 necessarily easier, in fact I still don't understand exactly how it
 works.
 
-It wasn't until I read about Antithesis' ["sometime
+It wasn't until I read about Antithesis' ["sometimes
 assertions"](https://antithesis.com/docs/best_practices/sometimes_assertions.html)
-that I started seeing a simple solution to the problem.
+that I started seeing a simple solution to the problem of collecting coverage
+information.
 
-These "sometimes assertions" can be thought of as generalised coverage, in that
-if we would annotate every single line, expression or branch with a sometime
-assertion we'd get back line-, expression-, or branch-based coverage. 
+To understand how "sometimes assertions" work let's first recall how regular
+assertions, or "always assertions", work. If we add `assert b "message"`
+somewhere in the code base and the boolean `b` evaluates to false at run-time
+then the program will fail with `"message"`. 
 
-But the cool thing about "sometimes assertions" is that we don't need to
-annotate every single line, expression or branch, we can annotate *interesting*
-points in our program.
+"Sometimes assertions" are different in that they don't need to always hold.
+Consider the example:
+
+```
+for (1..10000) {
+  c := flipCoin()
+  sometimesAssert (c == Heads) "probably an unfair coin"
+}
+```
+
+Above the "sometimes assertion" will only fail if we flip 10000 tails.
+
+How is this related to coverage though? If we sprinkle "sometimes assertions"
+at every branch point:
+
+```
+if b {
+  sometimesAssert True "true branch"
+} else {
+  sometimesAssert True "false branch"
+}
+```
+
+Then we'll get a failure when some branch hasn't been covered! The neat thing
+about "sometimes assertions" is that we don't need to annotate every single
+branch, we can annotate *interesting* points in our program, that's why we can
+think of "sometimes assertions" as generalised coverage.
 
 The final piece of the puzzle, and I think this is the only original idea that
 this post adds[^4], is that property-based testing already has functionality for
-implementing "sometimes assertions": the `label`, `classify` and `collect`
-machinary for gathering run-time statistics of the generated data!
+implementing "sometimes assertions": the machinery for gathering run-time
+statistics of the generated data!
 
-This machinary is [crucial](https://www.youtube.com/watch?v=NcJOiQlzlXQ) for
+This machinery is [crucial](https://www.youtube.com/watch?v=NcJOiQlzlXQ) for
 writing good tests and has been part of the QuickCheck implementation since the
 very first version[^5]!
 
@@ -358,7 +373,7 @@ using the internal notion of coverage that property-based testing already has?
 
 ### The first version of QuickCheck
 
-For the sake of self-containment, let's reproduce the the essential parts of
+For the sake of self-containment, let's reproduce the essential parts of
 QuickCheck as defined in the appendix of the original
 [paper](https://dl.acm.org/doi/10.1145/351240.351266) (ICFP, 2000).
 
