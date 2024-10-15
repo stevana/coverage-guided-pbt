@@ -14,8 +14,6 @@ category:        Testing
 build-type:      Simple
 extra-doc-files: CHANGELOG.md
 
--- extra-source-files:
-
 common warnings
   ghc-options: -Wall
 
@@ -36,10 +34,8 @@ library
     Statistics
     Test
 
-  -- other-modules:
-  -- other-extensions:
   build-depends:
-    , base        ^>=4.20.0.0
+    , base        >=4.17.0.0
     , containers
     , random
     , time
@@ -50,12 +46,9 @@ library
 test-suite test
   import:           warnings
   default-language: Haskell2010
-
-  -- other-modules:
-  -- other-extensions:
   type:             exitcode-stdio-1.0
   hs-source-dirs:   test
   main-is:          Main.hs
   build-depends:
-    , base                 ^>=4.20.0.0
+    , base
     , coverage-guided-pbt
